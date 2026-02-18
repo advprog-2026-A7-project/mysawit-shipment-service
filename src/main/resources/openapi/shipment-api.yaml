@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: MySawit Shipment Service API
+  version: 0.1.0
+  description: Skeleton contract for shipment module (Milestone kickoff).
+servers:
+  - url: http://localhost:8084
+tags:
+  - name: Shipments
+paths:
+  /api/v1/shipments:
+    get:
+      tags: [Shipments]
+      summary: List shipments
+      operationId: listShipments
+      responses:
+        "200":
+          description: Shipment list placeholder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentListResponse"
+    post:
+      tags: [Shipments]
+      summary: Create shipment
+      operationId: createShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShipmentRequest"
+      responses:
+        "201":
+          description: Shipment created placeholder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentResponse"
+  /api/v1/shipments/{shipmentId}:
+    get:
+      tags: [Shipments]
+      summary: Get shipment detail
+      operationId: getShipmentById
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shipment detail placeholder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentResponse"
+    put:
+      tags: [Shipments]
+      summary: Update shipment
+      operationId: updateShipment
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateShipmentRequest"
+      responses:
+        "200":
+          description: Shipment updated placeholder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentResponse"
+    delete:
+      tags: [Shipments]
+      summary: Delete shipment
+      operationId: deleteShipment
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Shipment deleted placeholder
+  /api/v1/shipments/{shipmentId}/status:
+    patch:
+      tags: [Shipments]
+      summary: Update shipment status
+      operationId: updateShipmentStatus
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateShipmentStatusRequest"
+      responses:
+        "200":
+          description: Shipment status updated placeholder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentResponse"
+components:
+  schemas:
+    CreateShipmentRequest:
+      type: object
+      properties:
+        orderId:
+          type: string
+        destination:
+          type: string
+    UpdateShipmentRequest:
+      type: object
+      properties:
+        destination:
+          type: string
+        eta:
+          type: string
+          format: date-time
+    UpdateShipmentStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [PENDING, IN_TRANSIT, DELIVERED, CANCELLED]
+    ShipmentResponse:
+      type: object
+      properties:
+        shipmentId:
+          type: string
+        orderId:
+          type: string
+        status:
+          type: string
+        destination:
+          type: string
+    ShipmentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShipmentResponse"
