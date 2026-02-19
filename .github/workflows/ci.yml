@@ -14,7 +14,7 @@ jobs:
   build-test-lint-sonar:
     runs-on: ubuntu-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_TOKEN_RAW: ${{ secrets.SONAR_TOKEN }}
       SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
@@ -34,12 +34,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Validate SonarCloud configuration
+      - name: Validate and normalize SonarCloud configuration
         run: |
           set -euo pipefail
-          test -n "${SONAR_TOKEN}" || (echo "SONAR_TOKEN is not set" && exit 1)
-          test -n "${SONAR_PROJECT_KEY}" || (echo "SONAR_PROJECT_KEY is not set" && exit 1)
-          test -n "${SONAR_ORGANIZATION}" || (echo "SONAR_ORGANIZATION is not set" && exit 1)
+          CLEAN_SONAR_TOKEN="$(printf '%s' "${SONAR_TOKEN_RAW:-}" | tr -d '\r\n')"
+          test -n "${CLEAN_SONAR_TOKEN}" || (echo "SONAR_TOKEN is not set" && exit 1)
+          test -n "${SONAR_PROJECT_KEY:-}" || (echo "SONAR_PROJECT_KEY is not set" && exit 1)
+          test -n "${SONAR_ORGANIZATION:-}" || (echo "SONAR_ORGANIZATION is not set" && exit 1)
+          echo "SONAR_TOKEN=${CLEAN_SONAR_TOKEN}" >> "$GITHUB_ENV"
 
       - name: Test + Lint + Coverage (100%)
         run: ./gradlew --no-daemon clean check jacocoTestReport jacocoTestCoverageVerification
@@ -57,7 +59,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.host.url=https://sonarcloud.io
@@ -71,7 +73,7 @@ jobs:
 
       - name: Fail if SonarCloud Quality Gate fails
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -79,6 +81,7 @@ jobs:
           import json
           import os
           import time
+          import urllib.error
           import urllib.request
 
           token = os.environ["SONAR_TOKEN"]
@@ -98,8 +101,12 @@ jobs:
               req = urllib.request.Request(url)
               auth = base64.b64encode((token + ":").encode()).decode()
               req.add_header("Authorization", "Basic " + auth)
-              with urllib.request.urlopen(req) as resp:
-                  return json.loads(resp.read().decode())
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      return json.loads(resp.read().decode())
+              except urllib.error.HTTPError as err:
+                  body = err.read().decode("utf-8", "ignore")
+                  raise SystemExit(f"HTTP error {err.code} from {url}: {body}")
 
           analysis_id = None
           for _ in range(60):
