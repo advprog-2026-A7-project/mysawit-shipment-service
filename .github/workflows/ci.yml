@@ -72,6 +72,7 @@ jobs:
             -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
 
       - name: Fail if SonarCloud Quality Gate fails
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         run: |
