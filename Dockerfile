@@ -1,13 +1,23 @@
-# ---- Build stage ----
-FROM gradle:8.10.2-jdk21 AS build
-WORKDIR /home/gradle/project
-COPY . .
-RUN gradle --no-daemon clean build -x test
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
 
-# ---- Run stage ----
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+RUN chmod +x gradlew
+
+COPY src src
+RUN ./gradlew --no-daemon clean bootJar -x test
+
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /home/gradle/project/build/libs/*.jar app.jar
-EXPOSE 8080
+
+RUN groupadd --system spring && useradd --system --gid spring spring
+COPY --from=build /workspace/build/libs/*.jar app.jar
+
+EXPOSE 8084
+ENV SERVER_PORT=8084
 ENV JAVA_OPTS=""
+
+USER spring:spring
 ENTRYPOINT ["sh","-c","java $JAVA_OPTS -jar /app/app.jar"]
