@@ -1,0 +1,214 @@
+name: CD - Deploy Shipment to AWS
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: shipment-cd-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to AWS ECS
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+      ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+
+          command -v jq >/dev/null 2>&1 || (echo "::error::jq is required but not found" && exit 1)
+
+          missing_vars=()
+          for key in AWS_REGION ECR_REPOSITORY ECS_CLUSTER ECS_SERVICE ECS_CONTAINER_NAME; do
+            if [ -z "${!key:-}" ]; then
+              missing_vars+=("$key")
+            fi
+          done
+
+          if [ "${#missing_vars[@]}" -gt 0 ]; then
+            echo "::error::Missing repository variables: ${missing_vars[*]}"
+            exit 1
+          fi
+
+          has_role="false"
+          has_keys="false"
+
+          if [ -n "${AWS_ROLE_TO_ASSUME:-}" ]; then
+            has_role="true"
+          fi
+
+          if [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+            has_keys="true"
+          fi
+
+          if [ "$has_role" != "true" ] && [ "$has_keys" != "true" ]; then
+            echo "::error::Provide AWS_ROLE_TO_ASSUME (recommended) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
+            exit 1
+          fi
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set image tag
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
+          IMAGE_TAG="${SOURCE_SHA::12}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC role)
+        if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (Access key)
+        if: ${{ env.AWS_ROLE_TO_ASSUME == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr_login.outputs.registry }}
+        run: |
+          set -euo pipefail
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          IMAGE_URI_LATEST="${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+
+          docker build -t "$IMAGE_URI" -t "$IMAGE_URI_LATEST" .
+          docker push "$IMAGE_URI"
+          docker push "$IMAGE_URI_LATEST"
+
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Deploy to ECS service
+        run: |
+          set -euo pipefail
+
+          SERVICE_STATUS="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].status' \
+            --output text)"
+
+          if [ -z "$SERVICE_STATUS" ] || [ "$SERVICE_STATUS" = "None" ]; then
+            echo "::error::ECS service '$ECS_SERVICE' in cluster '$ECS_CLUSTER' was not found"
+            exit 1
+          fi
+
+          if [ "$SERVICE_STATUS" != "ACTIVE" ]; then
+            echo "::error::ECS service '$ECS_SERVICE' is not ACTIVE (status=$SERVICE_STATUS)"
+            exit 1
+          fi
+
+          TASK_DEFINITION_ARN="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [ -z "$TASK_DEFINITION_ARN" ] || [ "$TASK_DEFINITION_ARN" = "None" ]; then
+            echo "::error::ECS service '$ECS_SERVICE' in cluster '$ECS_CLUSTER' was not found"
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEFINITION_ARN" \
+            --query 'taskDefinition' \
+            --output json > task-definition.json
+
+          required_runtime_envs=(
+            SPRING_DATASOURCE_URL
+            SPRING_DATASOURCE_USERNAME
+            SPRING_DATASOURCE_PASSWORD
+            JWT_SECRET
+            CORS_ORIGINS
+          )
+
+          container_count="$(jq --arg NAME "$ECS_CONTAINER_NAME" '[.containerDefinitions[] | select(.name == $NAME)] | length' task-definition.json)"
+          if [ "$container_count" -eq 0 ]; then
+            echo "::error::Container '$ECS_CONTAINER_NAME' not found in task definition '$TASK_DEFINITION_ARN'"
+            exit 1
+          fi
+
+          missing_runtime_envs=()
+          for key in "${required_runtime_envs[@]}"; do
+            found_key="$(jq -r --arg NAME "$ECS_CONTAINER_NAME" --arg KEY "$key" '
+              [
+                .containerDefinitions[]
+                | select(.name == $NAME)
+                | (
+                    ((.environment // [])[]?.name),
+                    ((.secrets // [])[]?.name)
+                  )
+              ]
+              | index($KEY) != null
+            ' task-definition.json)"
+
+            if [ "$found_key" != "true" ]; then
+              missing_runtime_envs+=("$key")
+            fi
+          done
+
+          if [ "${#missing_runtime_envs[@]}" -gt 0 ]; then
+            echo "::error::Missing required runtime env/secrets in ECS task definition container '$ECS_CONTAINER_NAME': ${missing_runtime_envs[*]}"
+            exit 1
+          fi
+
+          jq --arg NAME "$ECS_CONTAINER_NAME" --arg IMAGE "$IMAGE_URI" '
+            .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+            | del(
+                .taskDefinitionArn,
+                .revision,
+                .status,
+                .requiresAttributes,
+                .compatibilities,
+                .registeredAt,
+                .registeredBy
+              )
+          ' task-definition.json > task-definition.new.json
+
+          NEW_TASK_DEFINITION_ARN="$(aws ecs register-task-definition \
+            --cli-input-json file://task-definition.new.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$NEW_TASK_DEFINITION_ARN" \
+            --force-new-deployment > /dev/null
+
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
+
+          echo "Deployment complete: $IMAGE_URI"
