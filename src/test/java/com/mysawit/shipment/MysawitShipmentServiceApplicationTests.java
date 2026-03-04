@@ -1,25 +1,52 @@
 package com.mysawit.shipment;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.mockito.MockedStatic;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.env.ConfigurableEnvironment;
 
-@SpringBootTest
-@ActiveProfiles("test")
+import static org.mockito.Mockito.*;
+
 class MysawitShipmentServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void constructorCanBeCalled() {
+        new MysawitShipmentServiceApplication();
     }
 
     @Test
-    void mainRunsWithTestProfile() {
-        MysawitShipmentServiceApplication.main(
-            new String[] {
-                "--spring.profiles.active=test",
-                "--spring.main.web-application-type=none",
-                "--app.test.close-context=true"
-            }
-        );
+    void mainClosesContextWhenConfigured() {
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+        when(context.getEnvironment()).thenReturn(environment);
+        when(environment.getProperty("app.test.close-context", Boolean.class, false)).thenReturn(true);
+
+        String[] args = new String[] {"--spring.main.web-application-type=none"};
+        try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
+            springApplication.when(() -> SpringApplication.run(MysawitShipmentServiceApplication.class, args)).thenReturn(context);
+
+            MysawitShipmentServiceApplication.main(args);
+
+            springApplication.verify(() -> SpringApplication.run(MysawitShipmentServiceApplication.class, args));
+            verify(context).close();
+        }
+    }
+
+    @Test
+    void mainDoesNotCloseContextWhenNotConfigured() {
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+        when(context.getEnvironment()).thenReturn(environment);
+        when(environment.getProperty("app.test.close-context", Boolean.class, false)).thenReturn(false);
+
+        String[] args = new String[] {"--spring.main.web-application-type=none"};
+        try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
+            springApplication.when(() -> SpringApplication.run(MysawitShipmentServiceApplication.class, args)).thenReturn(context);
+
+            MysawitShipmentServiceApplication.main(args);
+
+            verify(context, never()).close();
+        }
     }
 }

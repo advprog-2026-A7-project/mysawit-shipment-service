@@ -1,158 +1,271 @@
 openapi: 3.0.3
 info:
   title: MySawit Shipment Service API
-  version: 0.1.0
-  description: Skeleton contract for shipment module (Milestone kickoff).
+  version: 1.0.0
+  description: >
+    Milestone 25% contract for Shipment Service.
+    Security rules:
+    - JWT required (401 if missing/invalid)
+    - SUPIR role required (403 if wrong role)
+    - Owner-only access by JWT claim userId (403 if not owner)
+
 servers:
   - url: http://localhost:8084
+    description: Local
+  - url: https://api.mysawit.example.com
+    description: Public ALB base URL (path routing)
+
 tags:
   - name: Shipments
+  - name: Health
+
 paths:
-  /api/v1/shipments:
+  /api/shipments:
     get:
       tags: [Shipments]
-      summary: List shipments
-      operationId: listShipments
+      summary: List shipments for authenticated SUPIR
+      description: Returns only shipments owned by authenticated user (claim userId).
+      operationId: listMyShipments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ShipmentStatus'
+          description: Optional status filter.
       responses:
         "200":
-          description: Shipment list placeholder
+          description: List of owned shipments
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShipmentListResponse"
-    post:
-      tags: [Shipments]
-      summary: Create shipment
-      operationId: createShipment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateShipmentRequest"
-      responses:
-        "201":
-          description: Shipment created placeholder
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShipmentResponse'
+        "401":
+          description: Missing or invalid JWT
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShipmentResponse"
-  /api/v1/shipments/{shipmentId}:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value: { error: "Unauthorized" }
+        "403":
+          description: Wrong role (not SUPIR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbiddenRole:
+                  value: { error: "Forbidden" }
+
+  /api/shipments/{shipmentId}:
     get:
       tags: [Shipments]
-      summary: Get shipment detail
+      summary: Get shipment detail (owner only)
       operationId: getShipmentById
+      security:
+        - bearerAuth: []
       parameters:
         - name: shipmentId
           in: path
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
       responses:
         "200":
-          description: Shipment detail placeholder
+          description: Shipment detail
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShipmentResponse"
-    put:
-      tags: [Shipments]
-      summary: Update shipment
-      operationId: updateShipment
-      parameters:
-        - name: shipmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateShipmentRequest"
-      responses:
-        "200":
-          description: Shipment updated placeholder
+                $ref: '#/components/schemas/ShipmentResponse'
+        "401":
+          description: Missing or invalid JWT
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShipmentResponse"
-    delete:
-      tags: [Shipments]
-      summary: Delete shipment
-      operationId: deleteShipment
-      parameters:
-        - name: shipmentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: Shipment deleted placeholder
-  /api/v1/shipments/{shipmentId}/status:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role or not owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notOwner:
+                  value: { error: "Forbidden: not shipment owner" }
+        "404":
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notFound:
+                  value: { error: "Shipment not found" }
+
+  /api/shipments/{shipmentId}/status:
     patch:
       tags: [Shipments]
-      summary: Update shipment status
+      summary: Update shipment status (owner SUPIR only)
+      description: >
+        Allowed transitions only:
+        MEMUAT -> MENGIRIM -> TIBA.
+        Skipping is forbidden and TIBA is terminal.
       operationId: updateShipmentStatus
+      security:
+        - bearerAuth: []
       parameters:
         - name: shipmentId
           in: path
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateShipmentStatusRequest"
+              $ref: '#/components/schemas/UpdateShipmentStatusRequest'
       responses:
         "200":
-          description: Shipment status updated placeholder
+          description: Status updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShipmentResponse"
+                $ref: '#/components/schemas/ShipmentResponse'
+        "400":
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidStatus:
+                  value: { error: "Invalid status value" }
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role or not owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidTransition:
+                  value: { error: "Invalid status transition" }
+
+  /api/shipments/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: shipmentHealth
+      security: []
+      responses:
+        "200":
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
-    CreateShipmentRequest:
+    ShipmentStatus:
+      type: string
+      enum: [MEMUAT, MENGIRIM, TIBA]
+
+    ShipmentResponse:
       type: object
       properties:
-        orderId:
-          type: string
+        id:
+          type: integer
+          format: int64
+        harvestId:
+          type: integer
+          format: int64
+        supirUserId:
+          type: integer
+          format: int64
+          description: Owner userId from JWT claim.
         destination:
           type: string
-    UpdateShipmentRequest:
-      type: object
-      properties:
-        destination:
-          type: string
-        eta:
+        totalKg:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        status:
+          $ref: '#/components/schemas/ShipmentStatus'
+        createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - harvestId
+        - supirUserId
+        - destination
+        - totalKg
+        - status
+        - createdAt
+        - updatedAt
+
     UpdateShipmentStatusRequest:
       type: object
       properties:
         status:
-          type: string
-          enum: [PENDING, IN_TRANSIT, DELIVERED, CANCELLED]
-    ShipmentResponse:
+          $ref: '#/components/schemas/ShipmentStatus'
+      required:
+        - status
+
+    ErrorResponse:
       type: object
       properties:
-        shipmentId:
+        error:
           type: string
-        orderId:
-          type: string
+      required:
+        - error
+
+    HealthResponse:
+      type: object
+      properties:
         status:
           type: string
-        destination:
+          example: UP
+        service:
           type: string
-    ShipmentListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/ShipmentResponse"
+          example: mysawit-shipment-service
+      required:
+        - status
+        - service
