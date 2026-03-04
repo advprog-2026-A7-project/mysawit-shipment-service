@@ -1,14 +1,15 @@
-name: CD - Deploy Shipment to AWS
+name: CD - Deploy Shipment to EC2
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: Git ref to deploy (main only)
+        required: false
+        default: main
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: shipment-cd-main
@@ -16,136 +17,38 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to AWS ECS
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    name: Deploy Shipment Service (EC2)
+    if: ${{ github.ref_name == 'main' }}
     runs-on: ubuntu-latest
     env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      ECR_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
-      ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
-      ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
-      ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
-      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      STAGING_HOST: ${{ secrets.STAGING_HOST }}
+      STAGING_USER: ${{ secrets.STAGING_USER }}
+      STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+      STAGING_PORT: ${{ vars.STAGING_PORT }}
+      REMOTE_APP_DIR: ${{ vars.REMOTE_APP_DIR }}
+      SHIPMENT_HOST_PORT: ${{ vars.SHIPMENT_HOST_PORT }}
+
+      SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+      SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+      SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION: ${{ vars.JWT_EXPIRATION }}
+      CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
 
     steps:
-      - name: Validate deployment configuration
+      - name: Validate deployment inputs and secrets
         run: |
           set -euo pipefail
 
-          command -v jq >/dev/null 2>&1 || (echo "::error::jq is required but not found" && exit 1)
-
-          missing_vars=()
-          for key in AWS_REGION ECR_REPOSITORY ECS_CLUSTER ECS_SERVICE ECS_CONTAINER_NAME; do
-            if [ -z "${!key:-}" ]; then
-              missing_vars+=("$key")
-            fi
-          done
-
-          if [ "${#missing_vars[@]}" -gt 0 ]; then
-            echo "::error::Missing repository variables: ${missing_vars[*]}"
+          if [ "${{ github.event.inputs.deploy_ref }}" != "main" ]; then
+            echo "::error::deploy_ref must be 'main'"
             exit 1
           fi
 
-          has_role="false"
-          has_keys="false"
-
-          if [ -n "${AWS_ROLE_TO_ASSUME:-}" ]; then
-            has_role="true"
-          fi
-
-          if [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-            has_keys="true"
-          fi
-
-          if [ "$has_role" != "true" ] && [ "$has_keys" != "true" ]; then
-            echo "::error::Provide AWS_ROLE_TO_ASSUME (recommended) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
-            exit 1
-          fi
-
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Set image tag
-        run: |
-          set -euo pipefail
-          SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
-          IMAGE_TAG="${SOURCE_SHA::12}"
-          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
-
-      - name: Configure AWS credentials (OIDC role)
-        if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Configure AWS credentials (Access key)
-        if: ${{ env.AWS_ROLE_TO_ASSUME == '' }}
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: ecr_login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr_login.outputs.registry }}
-        run: |
-          set -euo pipefail
-          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          IMAGE_URI_LATEST="${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
-
-          docker build -t "$IMAGE_URI" -t "$IMAGE_URI_LATEST" .
-          docker push "$IMAGE_URI"
-          docker push "$IMAGE_URI_LATEST"
-
-          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
-
-      - name: Deploy to ECS service
-        run: |
-          set -euo pipefail
-
-          SERVICE_STATUS="$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].status' \
-            --output text)"
-
-          if [ -z "$SERVICE_STATUS" ] || [ "$SERVICE_STATUS" = "None" ]; then
-            echo "::error::ECS service '$ECS_SERVICE' in cluster '$ECS_CLUSTER' was not found"
-            exit 1
-          fi
-
-          if [ "$SERVICE_STATUS" != "ACTIVE" ]; then
-            echo "::error::ECS service '$ECS_SERVICE' is not ACTIVE (status=$SERVICE_STATUS)"
-            exit 1
-          fi
-
-          TASK_DEFINITION_ARN="$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].taskDefinition' \
-            --output text)"
-
-          if [ -z "$TASK_DEFINITION_ARN" ] || [ "$TASK_DEFINITION_ARN" = "None" ]; then
-            echo "::error::ECS service '$ECS_SERVICE' in cluster '$ECS_CLUSTER' was not found"
-            exit 1
-          fi
-
-          aws ecs describe-task-definition \
-            --task-definition "$TASK_DEFINITION_ARN" \
-            --query 'taskDefinition' \
-            --output json > task-definition.json
-
-          required_runtime_envs=(
+          required_secrets=(
+            STAGING_HOST
+            STAGING_USER
+            STAGING_SSH_KEY
             SPRING_DATASOURCE_URL
             SPRING_DATASOURCE_USERNAME
             SPRING_DATASOURCE_PASSWORD
@@ -153,62 +56,118 @@ jobs:
             CORS_ORIGINS
           )
 
-          container_count="$(jq --arg NAME "$ECS_CONTAINER_NAME" '[.containerDefinitions[] | select(.name == $NAME)] | length' task-definition.json)"
-          if [ "$container_count" -eq 0 ]; then
-            echo "::error::Container '$ECS_CONTAINER_NAME' not found in task definition '$TASK_DEFINITION_ARN'"
-            exit 1
-          fi
-
-          missing_runtime_envs=()
-          for key in "${required_runtime_envs[@]}"; do
-            found_key="$(jq -r --arg NAME "$ECS_CONTAINER_NAME" --arg KEY "$key" '
-              [
-                .containerDefinitions[]
-                | select(.name == $NAME)
-                | (
-                    ((.environment // [])[]?.name),
-                    ((.secrets // [])[]?.name)
-                  )
-              ]
-              | index($KEY) != null
-            ' task-definition.json)"
-
-            if [ "$found_key" != "true" ]; then
-              missing_runtime_envs+=("$key")
+          missing=()
+          for key in "${required_secrets[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
             fi
           done
 
-          if [ "${#missing_runtime_envs[@]}" -gt 0 ]; then
-            echo "::error::Missing required runtime env/secrets in ECS task definition container '$ECS_CONTAINER_NAME': ${missing_runtime_envs[*]}"
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
             exit 1
           fi
 
-          jq --arg NAME "$ECS_CONTAINER_NAME" --arg IMAGE "$IMAGE_URI" '
-            .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
-            | del(
-                .taskDefinitionArn,
-                .revision,
-                .status,
-                .requiresAttributes,
-                .compatibilities,
-                .registeredAt,
-                .registeredBy
-              )
-          ' task-definition.json > task-definition.new.json
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.deploy_ref }}
 
-          NEW_TASK_DEFINITION_ARN="$(aws ecs register-task-definition \
-            --cli-input-json file://task-definition.new.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)"
+      - name: Set deploy metadata
+        run: |
+          set -euo pipefail
+          echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+          echo "STAGING_PORT=${STAGING_PORT:-22}" >> "$GITHUB_ENV"
+          echo "REMOTE_APP_DIR=${REMOTE_APP_DIR:-/home/${STAGING_USER}/mysawit-shipment}" >> "$GITHUB_ENV"
+          echo "SHIPMENT_HOST_PORT=${SHIPMENT_HOST_PORT:-8084}" >> "$GITHUB_ENV"
+          echo "JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}" >> "$GITHUB_ENV"
 
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$NEW_TASK_DEFINITION_ARN" \
-            --force-new-deployment > /dev/null
+      - name: Prepare SSH client
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s' "$STAGING_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$STAGING_PORT" -H "$STAGING_HOST" >> ~/.ssh/known_hosts
 
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
+      - name: Create runtime env file
+        run: |
+          set -euo pipefail
+          {
+            echo "SERVER_PORT=8084"
+            echo "SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}"
+            echo "SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}"
+            echo "SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "JWT_EXPIRATION=${JWT_EXPIRATION}"
+            echo "CORS_ORIGINS=${CORS_ORIGINS}"
+          } > .env.deploy
 
-          echo "Deployment complete: $IMAGE_URI"
+      - name: Upload app source and env file
+        run: |
+          set -euo pipefail
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            -czf /tmp/mysawit-shipment-src.tgz .
+
+          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" "mkdir -p '$REMOTE_APP_DIR'"
+
+          scp -P "$STAGING_PORT" /tmp/mysawit-shipment-src.tgz "$STAGING_USER@$STAGING_HOST:/tmp/mysawit-shipment-src.tgz"
+          scp -P "$STAGING_PORT" .env.deploy "$STAGING_USER@$STAGING_HOST:$REMOTE_APP_DIR/.env"
+
+          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" "tar -xzf /tmp/mysawit-shipment-src.tgz -C '$REMOTE_APP_DIR'"
+
+      - name: Build and run shipment container
+        run: |
+          set -euo pipefail
+          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
+            "export REMOTE_APP_DIR='$REMOTE_APP_DIR' IMAGE_TAG='$IMAGE_TAG' SHIPMENT_HOST_PORT='$SHIPMENT_HOST_PORT'; bash -s" <<'EOSSH'
+          set -euo pipefail
+          cd "$REMOTE_APP_DIR"
+
+          DOCKER_BIN="docker"
+          if ! docker info >/dev/null 2>&1; then
+            DOCKER_BIN="sudo docker"
+          fi
+
+          $DOCKER_BIN build -t "mysawit-shipment:${IMAGE_TAG}" -t mysawit-shipment:latest .
+          $DOCKER_BIN rm -f mysawit-shipment >/dev/null 2>&1 || true
+
+          $DOCKER_BIN run -d \
+            --name mysawit-shipment \
+            --env-file .env \
+            -p "${SHIPMENT_HOST_PORT}:8084" \
+            --restart unless-stopped \
+            "mysawit-shipment:${IMAGE_TAG}"
+          EOSSH
+
+      - name: Verify service health
+        run: |
+          set -euo pipefail
+          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
+            "export SHIPMENT_HOST_PORT='$SHIPMENT_HOST_PORT'; bash -s" <<'EOSSH'
+          set -euo pipefail
+
+          DOCKER_BIN="docker"
+          if ! docker info >/dev/null 2>&1; then
+            DOCKER_BIN="sudo docker"
+          fi
+
+          for i in $(seq 1 24); do
+            if command -v curl >/dev/null 2>&1 && curl -fsS "http://localhost:${SHIPMENT_HOST_PORT}/actuator/health" >/dev/null; then
+              echo "Shipment service is healthy"
+              exit 0
+            fi
+            if command -v wget >/dev/null 2>&1 && wget -qO- "http://localhost:${SHIPMENT_HOST_PORT}/actuator/health" >/dev/null; then
+              echo "Shipment service is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          $DOCKER_BIN logs --tail 200 mysawit-shipment || true
+          echo "::error::Shipment service health check failed"
+          exit 1
+          EOSSH
