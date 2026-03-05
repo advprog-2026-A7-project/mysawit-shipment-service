@@ -29,6 +29,12 @@ public class ShipmentExceptionHandler {
                 .body(buildError("INVALID_STATUS_TRANSITION", ex.getMessage()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildError("BAD_REQUEST", ex.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
         Map<String, String> body = new HashMap<>();
