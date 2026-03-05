@@ -26,4 +26,14 @@ class ShipmentStatusTransitionPolicyTest {
     void rejectsAnyTransitionFromTerminalTiba() {
         assertFalse(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.TIBA, ShipmentStatus.MENGIRIM));
     }
+
+    @Test
+    void rejectsNullFromStatus() {
+        assertFalse(ShipmentStatusTransitionPolicy.canTransition(null, ShipmentStatus.MEMUAT));
+    }
+
+    @Test
+    void rejectsNullToStatus() {
+        assertFalse(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MEMUAT, null));
+    }
 }
