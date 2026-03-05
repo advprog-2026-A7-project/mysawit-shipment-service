@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "shipments")
@@ -16,16 +17,16 @@ import java.time.LocalDateTime;
 public class Shipment {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     
     @NotNull(message = "Harvest ID is required")
     @Column(name = "harvest_id", nullable = false)
-    private Long harvestId;
+    private UUID harvestId;
 
     @NotNull(message = "Supir user ID is required")
     @Column(name = "supir_user_id", nullable = false)
-    private Long supirUserId;
+    private UUID supirUserId;
     
     @NotBlank(message = "Destination is required")
     @Column(nullable = false)

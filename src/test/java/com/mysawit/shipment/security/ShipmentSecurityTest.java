@@ -44,6 +44,13 @@ class ShipmentSecurityTest {
     }
 
     @Test
+    void getShipmentsWithMalformedUuidTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/shipments")
+                        .header("Authorization", "Bearer token-with-supir-role-user-------------------------------------"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void getShipmentsWithSupirTokenReturnsOk() throws Exception {
         when(shipmentService.getAllShipments()).thenReturn(List.of());
 
@@ -56,5 +63,11 @@ class ShipmentSecurityTest {
     void shipmentHealthWithoutTokenReturnsOk() throws Exception {
         mockMvc.perform(get("/api/shipments/health"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void nonShipmentPathWithoutTokenIsNotBlockedByShipmentFilter() throws Exception {
+        mockMvc.perform(get("/api/non-shipment-path"))
+                .andExpect(status().isNotFound());
     }
 }

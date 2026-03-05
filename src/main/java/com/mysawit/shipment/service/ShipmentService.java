@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class ShipmentService {
@@ -29,22 +30,22 @@ public class ShipmentService {
         return shipmentRepository.findAll();
     }
 
-    public List<Shipment> getShipmentsBySupirUserId(Long supirUserId) {
+    public List<Shipment> getShipmentsBySupirUserId(UUID supirUserId) {
         return shipmentRepository.findBySupirUserId(supirUserId);
     }
     
-    public Shipment getShipmentById(Long id) {
+    public Shipment getShipmentById(UUID id) {
         return shipmentRepository.findById(id)
                 .orElseThrow(() -> new ShipmentNotFoundException(ERR_NOT_FOUND_PREFIX + id));
     }
 
-    public Shipment getShipmentByIdForSupirUser(Long id, Long requesterSupirUserId) {
+    public Shipment getShipmentByIdForSupirUser(UUID id, UUID requesterSupirUserId) {
         Shipment shipment = getShipmentById(id);
         ensureOwnedByRequester(shipment, requesterSupirUserId);
         return shipment;
     }
 
-    public Shipment updateShipmentStatus(Long shipmentId, Long requesterSupirUserId, ShipmentStatus targetStatus) {
+    public Shipment updateShipmentStatus(UUID shipmentId, UUID requesterSupirUserId, ShipmentStatus targetStatus) {
         Shipment shipment = getShipmentById(shipmentId);
         ensureOwnedByRequester(shipment, requesterSupirUserId);
         ensureValidStatusTransition(shipment, targetStatus);
@@ -53,7 +54,7 @@ public class ShipmentService {
         return shipmentRepository.save(shipment);
     }
 
-    private void ensureOwnedByRequester(Shipment shipment, Long requesterSupirUserId) {
+    private void ensureOwnedByRequester(Shipment shipment, UUID requesterSupirUserId) {
         if (!Objects.equals(shipment.getSupirUserId(), requesterSupirUserId)) {
             throw new ShipmentForbiddenException(ERR_FORBIDDEN);
         }

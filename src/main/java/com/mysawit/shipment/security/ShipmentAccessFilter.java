@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,7 +19,7 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
     private static final String NON_SUPIR_TOKEN = "token-with-non-supir-role";
     private static final String SUPIR_TOKEN = "token-with-supir-role";
     private static final Pattern SUPIR_WITH_USER_ID_PATTERN =
-            Pattern.compile("^token-with-supir-role-user-(\\d+)$");
+            Pattern.compile("^token-with-supir-role-user-([0-9a-fA-F\\-]{36})$");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -48,7 +49,12 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
 
         Matcher matcher = SUPIR_WITH_USER_ID_PATTERN.matcher(token);
         if (matcher.matches()) {
-            request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, Long.parseLong(matcher.group(1)));
+            try {
+                request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, UUID.fromString(matcher.group(1)));
+            } catch (IllegalArgumentException ex) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                return;
+            }
             filterChain.doFilter(request, response);
             return;
         }

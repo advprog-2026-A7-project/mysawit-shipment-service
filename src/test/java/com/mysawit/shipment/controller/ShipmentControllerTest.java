@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -18,6 +19,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ShipmentControllerTest {
+
+    private static final UUID ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     private ShipmentService shipmentService;
     private ShipmentController shipmentController;
@@ -30,7 +34,7 @@ class ShipmentControllerTest {
 
     @Test
     void getAllShipmentsReturnsServiceResult() {
-        when(shipmentService.getAllShipments()).thenReturn(List.of(sampleShipment(1L), sampleShipment(2L)));
+        when(shipmentService.getAllShipments()).thenReturn(List.of(sampleShipment(ID_1), sampleShipment(ID_2)));
 
         ResponseEntity<List<Shipment>> response = shipmentController.getAllShipments(null);
 
@@ -41,10 +45,10 @@ class ShipmentControllerTest {
 
     @Test
     void getShipmentByIdReturnsShipment() {
-        Shipment shipment = sampleShipment(1L);
-        when(shipmentService.getShipmentById(1L)).thenReturn(shipment);
+        Shipment shipment = sampleShipment(ID_1);
+        when(shipmentService.getShipmentById(ID_1)).thenReturn(shipment);
 
-        ResponseEntity<?> response = shipmentController.getShipmentById(1L, null);
+        ResponseEntity<?> response = shipmentController.getShipmentById(ID_1, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(shipment, response.getBody());
@@ -52,9 +56,9 @@ class ShipmentControllerTest {
 
     @Test
     void getShipmentByIdPropagatesRuntimeExceptionWhenMissing() {
-        when(shipmentService.getShipmentById(1L)).thenThrow(new RuntimeException("missing"));
+        when(shipmentService.getShipmentById(ID_1)).thenThrow(new RuntimeException("missing"));
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentController.getShipmentById(1L, null));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentController.getShipmentById(ID_1, null));
 
         assertEquals("missing", exception.getMessage());
     }
@@ -68,11 +72,11 @@ class ShipmentControllerTest {
         assertEquals("mysawit-shipment-service", response.getBody().get("service"));
     }
 
-    private Shipment sampleShipment(Long id) {
+    private Shipment sampleShipment(UUID id) {
         Shipment shipment = new Shipment();
         shipment.setId(id);
-        shipment.setHarvestId(10L);
-        shipment.setSupirUserId(20L);
+        shipment.setHarvestId(UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"));
+        shipment.setSupirUserId(UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222"));
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(100.0);
         shipment.setStatus("MEMUAT");
