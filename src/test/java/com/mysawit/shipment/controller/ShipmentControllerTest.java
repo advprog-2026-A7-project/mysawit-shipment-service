@@ -12,6 +12,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,13 +51,12 @@ class ShipmentControllerTest {
     }
 
     @Test
-    void getShipmentByIdReturnsNotFoundWhenMissing() {
+    void getShipmentByIdPropagatesRuntimeExceptionWhenMissing() {
         when(shipmentService.getShipmentById(1L)).thenThrow(new RuntimeException("missing"));
 
-        ResponseEntity<?> response = shipmentController.getShipmentById(1L);
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentController.getShipmentById(1L));
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("missing", ((Map<?, ?>) response.getBody()).get("error"));
+        assertEquals("missing", exception.getMessage());
     }
 
     @Test

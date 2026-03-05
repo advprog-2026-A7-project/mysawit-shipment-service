@@ -46,4 +46,15 @@ class ShipmentErrorHandlingTest {
                 .andExpect(jsonPath("$.error").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.message").value("Forbidden"));
     }
+
+    @Test
+    void getShipmentByIdReturnsLegacyRuntimeErrorContract() throws Exception {
+        when(shipmentService.getShipmentById(500L))
+                .thenThrow(new RuntimeException("missing"));
+
+        mockMvc.perform(get("/api/shipments/500")
+                        .header("Authorization", "Bearer token-with-supir-role"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("missing"));
+    }
 }
