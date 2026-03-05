@@ -7,9 +7,13 @@ import com.mysawit.shipment.repository.ShipmentRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ShipmentService {
+
+    private static final String ERR_FORBIDDEN = "Forbidden";
+    private static final String ERR_INVALID_STATUS_TRANSITION = "Invalid status transition";
     
     private final ShipmentRepository shipmentRepository;
     
@@ -32,16 +36,23 @@ public class ShipmentService {
 
     public Shipment updateShipmentStatus(Long shipmentId, Long requesterSupirUserId, ShipmentStatus targetStatus) {
         Shipment shipment = getShipmentById(shipmentId);
-        if (!shipment.getSupirUserId().equals(requesterSupirUserId)) {
-            throw new RuntimeException("Forbidden");
-        }
-
-        ShipmentStatus currentStatus = ShipmentStatus.valueOf(shipment.getStatus());
-        if (!ShipmentStatusTransitionPolicy.canTransition(currentStatus, targetStatus)) {
-            throw new RuntimeException("Invalid status transition");
-        }
+        ensureOwnedByRequester(shipment, requesterSupirUserId);
+        ensureValidStatusTransition(shipment, targetStatus);
 
         shipment.setStatus(targetStatus.name());
         return shipmentRepository.save(shipment);
+    }
+
+    private void ensureOwnedByRequester(Shipment shipment, Long requesterSupirUserId) {
+        if (!Objects.equals(shipment.getSupirUserId(), requesterSupirUserId)) {
+            throw new RuntimeException(ERR_FORBIDDEN);
+        }
+    }
+
+    private void ensureValidStatusTransition(Shipment shipment, ShipmentStatus targetStatus) {
+        ShipmentStatus currentStatus = ShipmentStatus.valueOf(shipment.getStatus());
+        if (!ShipmentStatusTransitionPolicy.canTransition(currentStatus, targetStatus)) {
+            throw new RuntimeException(ERR_INVALID_STATUS_TRANSITION);
+        }
     }
 }
