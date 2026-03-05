@@ -23,6 +23,12 @@ public class ShipmentExceptionHandler {
                 .body(buildError("FORBIDDEN", ex.getMessage()));
     }
 
+    @ExceptionHandler(ShipmentInvalidTransitionException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidTransition(ShipmentInvalidTransitionException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(buildError("INVALID_STATUS_TRANSITION", ex.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
         Map<String, String> body = new HashMap<>();

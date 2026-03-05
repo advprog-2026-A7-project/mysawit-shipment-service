@@ -3,6 +3,7 @@ package com.mysawit.shipment.service;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
+import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
@@ -61,7 +62,7 @@ public class ShipmentService {
     private void ensureValidStatusTransition(Shipment shipment, ShipmentStatus targetStatus) {
         ShipmentStatus currentStatus = ShipmentStatus.valueOf(shipment.getStatus());
         if (!ShipmentStatusTransitionPolicy.canTransition(currentStatus, targetStatus)) {
-            throw new RuntimeException(ERR_INVALID_STATUS_TRANSITION);
+            throw new ShipmentInvalidTransitionException(ERR_INVALID_STATUS_TRANSITION);
         }
     }
 }

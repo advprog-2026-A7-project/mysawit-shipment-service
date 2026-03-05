@@ -1,5 +1,6 @@
 package com.mysawit.shipment.controller;
 
+import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.security.ShipmentSecurityAttributes;
 import com.mysawit.shipment.service.ShipmentService;
@@ -39,6 +40,17 @@ public class ShipmentController {
             return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, userId));
         }
         return ResponseEntity.ok(shipmentService.getShipmentById(id));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Shipment> updateShipmentStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> requestBody,
+            HttpServletRequest request
+    ) {
+        Long requesterUserId = (Long) request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
+        ShipmentStatus targetStatus = ShipmentStatus.valueOf(requestBody.get("status"));
+        return ResponseEntity.ok(shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus));
     }
     
     @GetMapping("/health")
