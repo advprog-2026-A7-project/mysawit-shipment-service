@@ -48,7 +48,7 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
 
         Matcher matcher = SUPIR_WITH_USER_ID_PATTERN.matcher(token);
         if (matcher.matches()) {
-            request.setAttribute("jwtUserId", Long.parseLong(matcher.group(1)));
+            request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, Long.parseLong(matcher.group(1)));
             filterChain.doFilter(request, response);
             return;
         }

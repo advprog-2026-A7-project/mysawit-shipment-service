@@ -1,6 +1,7 @@
 package com.mysawit.shipment.controller;
 
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.security.ShipmentSecurityAttributes;
 import com.mysawit.shipment.service.ShipmentService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -23,7 +24,7 @@ public class ShipmentController {
     
     @GetMapping
     public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
-        Object userIdAttr = request == null ? null : request.getAttribute("jwtUserId");
+        Object userIdAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
         if (userIdAttr instanceof Long userId) {
             return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(userId));
         }
