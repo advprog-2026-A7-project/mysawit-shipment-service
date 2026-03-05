@@ -3,6 +3,7 @@ package com.mysawit.shipment.service;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
+import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ public class ShipmentService {
 
     private static final String ERR_FORBIDDEN = "Forbidden";
     private static final String ERR_INVALID_STATUS_TRANSITION = "Invalid status transition";
+    private static final String ERR_NOT_FOUND_PREFIX = "Shipment not found with id: ";
     
     private final ShipmentRepository shipmentRepository;
     
@@ -32,14 +34,12 @@ public class ShipmentService {
     
     public Shipment getShipmentById(Long id) {
         return shipmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Shipment not found with id: " + id));
+                .orElseThrow(() -> new ShipmentNotFoundException(ERR_NOT_FOUND_PREFIX + id));
     }
 
     public Shipment getShipmentByIdForSupirUser(Long id, Long requesterSupirUserId) {
         Shipment shipment = getShipmentById(id);
-        if (!Objects.equals(shipment.getSupirUserId(), requesterSupirUserId)) {
-            throw new ShipmentForbiddenException(ERR_FORBIDDEN);
-        }
+        ensureOwnedByRequester(shipment, requesterSupirUserId);
         return shipment;
     }
 
@@ -54,7 +54,7 @@ public class ShipmentService {
 
     private void ensureOwnedByRequester(Shipment shipment, Long requesterSupirUserId) {
         if (!Objects.equals(shipment.getSupirUserId(), requesterSupirUserId)) {
-            throw new RuntimeException(ERR_FORBIDDEN);
+            throw new ShipmentForbiddenException(ERR_FORBIDDEN);
         }
     }
 
