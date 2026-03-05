@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/shipments")
@@ -26,7 +27,7 @@ public class ShipmentController {
     
     @GetMapping
     public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
-        Long requesterUserId = extractRequesterUserId(request);
+        UUID requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
             return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId));
         }
@@ -34,8 +35,8 @@ public class ShipmentController {
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id, HttpServletRequest request) {
-        Long requesterUserId = extractRequesterUserId(request);
+    public ResponseEntity<Shipment> getShipmentById(@PathVariable UUID id, HttpServletRequest request) {
+        UUID requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
             return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, requesterUserId));
         }
@@ -44,11 +45,11 @@ public class ShipmentController {
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<Shipment> updateShipmentStatus(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody Map<String, String> requestBody,
             HttpServletRequest request
     ) {
-        Long requesterUserId = extractRequesterUserId(request);
+        UUID requesterUserId = extractRequesterUserId(request);
         ShipmentStatus targetStatus = parseStatus(requestBody);
         return ResponseEntity.ok(shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus));
     }
@@ -61,15 +62,19 @@ public class ShipmentController {
         return ResponseEntity.ok(health);
     }
 
-    private Long extractRequesterUserId(HttpServletRequest request) {
+    private UUID extractRequesterUserId(HttpServletRequest request) {
         Object userIdAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
-        if (userIdAttr instanceof Long userId) {
+        if (userIdAttr instanceof UUID userId) {
             return userId;
         }
         return null;
     }
 
     private ShipmentStatus parseStatus(Map<String, String> requestBody) {
-        return ShipmentStatus.valueOf(requestBody.get(STATUS_FIELD));
+        String statusValue = requestBody.get(STATUS_FIELD);
+        if (statusValue == null || statusValue.isBlank()) {
+            throw new IllegalArgumentException("Invalid status value");
+        }
+        return ShipmentStatus.valueOf(statusValue);
     }
 }

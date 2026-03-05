@@ -3,6 +3,7 @@ package com.mysawit.shipment.model;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,21 +14,24 @@ class ShipmentTest {
         Shipment shipment = new Shipment();
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 9, 0);
         LocalDateTime updatedAt = LocalDateTime.of(2026, 3, 1, 10, 0);
+        UUID id = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID harvestId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID supirUserId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
         assertEquals("MEMUAT", shipment.getStatus());
 
-        shipment.setId(1L);
-        shipment.setHarvestId(2L);
-        shipment.setSupirUserId(3L);
+        shipment.setId(id);
+        shipment.setHarvestId(harvestId);
+        shipment.setSupirUserId(supirUserId);
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(200.0);
         shipment.setStatus("MENGIRIM");
         shipment.setCreatedAt(createdAt);
         shipment.setUpdatedAt(updatedAt);
 
-        assertEquals(1L, shipment.getId());
-        assertEquals(2L, shipment.getHarvestId());
-        assertEquals(3L, shipment.getSupirUserId());
+        assertEquals(id, shipment.getId());
+        assertEquals(harvestId, shipment.getHarvestId());
+        assertEquals(supirUserId, shipment.getSupirUserId());
         assertEquals("Jakarta", shipment.getDestination());
         assertEquals(200.0, shipment.getTotalKg());
         assertEquals("MENGIRIM", shipment.getStatus());

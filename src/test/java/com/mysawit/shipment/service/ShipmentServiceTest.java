@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -18,6 +19,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ShipmentServiceTest {
+
+    private static final UUID ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID ID_3 = UUID.fromString("33333333-3333-3333-3333-333333333333");
+    private static final UUID ID_4 = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final UUID ID_7 = UUID.fromString("77777777-7777-7777-7777-777777777777");
+    private static final UUID ID_8 = UUID.fromString("88888888-8888-8888-8888-888888888888");
+    private static final UUID ID_9 = UUID.fromString("99999999-9999-9999-9999-999999999999");
+    private static final UUID ID_10 = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static final UUID OWNER_42 = UUID.fromString("42424242-4242-4242-4242-424242424242");
+    private static final UUID OWNER_99 = UUID.fromString("99999999-4242-4242-4242-424242424242");
 
     private ShipmentRepository shipmentRepository;
     private ShipmentService shipmentService;
@@ -39,9 +50,9 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsBySupirUserIdReturnsRepositoryData() {
-        when(shipmentRepository.findBySupirUserId(42L)).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findBySupirUserId(OWNER_42)).thenReturn(List.of(new Shipment()));
 
-        List<Shipment> result = shipmentService.getShipmentsBySupirUserId(42L);
+        List<Shipment> result = shipmentService.getShipmentsBySupirUserId(OWNER_42);
 
         assertEquals(1, result.size());
     }
@@ -49,30 +60,30 @@ class ShipmentServiceTest {
     @Test
     void getShipmentByIdReturnsEntity() {
         Shipment shipment = new Shipment();
-        when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findById(ID_1)).thenReturn(Optional.of(shipment));
 
-        Shipment result = shipmentService.getShipmentById(1L);
+        Shipment result = shipmentService.getShipmentById(ID_1);
 
         assertSame(shipment, result);
     }
 
     @Test
     void getShipmentByIdThrowsWhenMissing() {
-        when(shipmentRepository.findById(1L)).thenReturn(Optional.empty());
+        when(shipmentRepository.findById(ID_1)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.getShipmentById(1L));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.getShipmentById(ID_1));
 
-        assertEquals("Shipment not found with id: 1", exception.getMessage());
+        assertEquals("Shipment not found with id: " + ID_1, exception.getMessage());
     }
 
     @Test
     void getShipmentByIdForSupirUserReturnsShipmentWhenOwner() {
         Shipment shipment = new Shipment();
-        shipment.setId(3L);
-        shipment.setSupirUserId(42L);
-        when(shipmentRepository.findById(3L)).thenReturn(Optional.of(shipment));
+        shipment.setId(ID_3);
+        shipment.setSupirUserId(OWNER_42);
+        when(shipmentRepository.findById(ID_3)).thenReturn(Optional.of(shipment));
 
-        Shipment result = shipmentService.getShipmentByIdForSupirUser(3L, 42L);
+        Shipment result = shipmentService.getShipmentByIdForSupirUser(ID_3, OWNER_42);
 
         assertSame(shipment, result);
     }
@@ -80,13 +91,13 @@ class ShipmentServiceTest {
     @Test
     void getShipmentByIdForSupirUserThrowsForbiddenWhenNotOwner() {
         Shipment shipment = new Shipment();
-        shipment.setId(4L);
-        shipment.setSupirUserId(99L);
-        when(shipmentRepository.findById(4L)).thenReturn(Optional.of(shipment));
+        shipment.setId(ID_4);
+        shipment.setSupirUserId(OWNER_99);
+        when(shipmentRepository.findById(ID_4)).thenReturn(Optional.of(shipment));
 
         ShipmentForbiddenException exception = assertThrows(
                 ShipmentForbiddenException.class,
-                () -> shipmentService.getShipmentByIdForSupirUser(4L, 42L)
+                () -> shipmentService.getShipmentByIdForSupirUser(ID_4, OWNER_42)
         );
 
         assertEquals("Forbidden", exception.getMessage());
@@ -95,13 +106,13 @@ class ShipmentServiceTest {
     @Test
     void updateShipmentStatusAllowsNextTransitionForOwner() {
         Shipment shipment = new Shipment();
-        shipment.setId(7L);
-        shipment.setSupirUserId(42L);
+        shipment.setId(ID_7);
+        shipment.setSupirUserId(OWNER_42);
         shipment.setStatus("MEMUAT");
-        when(shipmentRepository.findById(7L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findById(ID_7)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
-        Shipment result = shipmentService.updateShipmentStatus(7L, 42L, ShipmentStatus.MENGIRIM);
+        Shipment result = shipmentService.updateShipmentStatus(ID_7, OWNER_42, ShipmentStatus.MENGIRIM);
 
         assertSame(shipment, result);
         assertEquals("MENGIRIM", result.getStatus());
@@ -111,14 +122,14 @@ class ShipmentServiceTest {
     @Test
     void updateShipmentStatusRejectsSkippingTransition() {
         Shipment shipment = new Shipment();
-        shipment.setId(8L);
-        shipment.setSupirUserId(42L);
+        shipment.setId(ID_8);
+        shipment.setSupirUserId(OWNER_42);
         shipment.setStatus("MEMUAT");
-        when(shipmentRepository.findById(8L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findById(ID_8)).thenReturn(Optional.of(shipment));
 
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> shipmentService.updateShipmentStatus(8L, 42L, ShipmentStatus.TIBA)
+                () -> shipmentService.updateShipmentStatus(ID_8, OWNER_42, ShipmentStatus.TIBA)
         );
 
         assertEquals("Invalid status transition", exception.getMessage());
@@ -127,14 +138,14 @@ class ShipmentServiceTest {
     @Test
     void updateShipmentStatusRejectsTransitionFromTerminalStatus() {
         Shipment shipment = new Shipment();
-        shipment.setId(9L);
-        shipment.setSupirUserId(42L);
+        shipment.setId(ID_9);
+        shipment.setSupirUserId(OWNER_42);
         shipment.setStatus("TIBA");
-        when(shipmentRepository.findById(9L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findById(ID_9)).thenReturn(Optional.of(shipment));
 
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> shipmentService.updateShipmentStatus(9L, 42L, ShipmentStatus.MENGIRIM)
+                () -> shipmentService.updateShipmentStatus(ID_9, OWNER_42, ShipmentStatus.MENGIRIM)
         );
 
         assertEquals("Invalid status transition", exception.getMessage());
@@ -143,14 +154,14 @@ class ShipmentServiceTest {
     @Test
     void updateShipmentStatusRejectsWhenRequesterIsNotOwner() {
         Shipment shipment = new Shipment();
-        shipment.setId(10L);
-        shipment.setSupirUserId(99L);
+        shipment.setId(ID_10);
+        shipment.setSupirUserId(OWNER_99);
         shipment.setStatus("MEMUAT");
-        when(shipmentRepository.findById(10L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findById(ID_10)).thenReturn(Optional.of(shipment));
 
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> shipmentService.updateShipmentStatus(10L, 42L, ShipmentStatus.MENGIRIM)
+                () -> shipmentService.updateShipmentStatus(ID_10, OWNER_42, ShipmentStatus.MENGIRIM)
         );
 
         assertEquals("Forbidden", exception.getMessage());
