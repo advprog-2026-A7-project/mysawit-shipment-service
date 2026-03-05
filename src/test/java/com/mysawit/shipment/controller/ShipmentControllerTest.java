@@ -72,9 +72,10 @@ class ShipmentControllerTest {
         Shipment shipment = new Shipment();
         shipment.setId(id);
         shipment.setHarvestId(10L);
+        shipment.setSupirUserId(20L);
         shipment.setDestination("Jakarta");
-        shipment.setWeight(100.0);
-        shipment.setStatus("PENDING");
+        shipment.setTotalKg(100.0);
+        shipment.setStatus("MEMUAT");
         return shipment;
     }
 }

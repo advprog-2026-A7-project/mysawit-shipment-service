@@ -17,33 +17,22 @@ public class Shipment {
     @NotNull(message = "Harvest ID is required")
     @Column(name = "harvest_id", nullable = false)
     private Long harvestId;
+
+    @NotNull(message = "Supir user ID is required")
+    @Column(name = "supir_user_id", nullable = false)
+    private Long supirUserId;
     
     @NotBlank(message = "Destination is required")
     @Column(nullable = false)
     private String destination;
     
-    @NotNull(message = "Weight is required")
-    @Positive(message = "Weight must be positive")
-    @Column(nullable = false)
-    private Double weight; // in kg
+    @NotNull(message = "Total kg is required")
+    @Positive(message = "Total kg must be positive")
+    @Column(name = "total_kg", nullable = false)
+    private Double totalKg;
     
     @Column(nullable = false)
-    private String status = "PENDING"; // PENDING, IN_TRANSIT, DELIVERED, CANCELLED
-    
-    @Column(name = "shipper_name")
-    private String shipperName;
-    
-    @Column(name = "vehicle_number")
-    private String vehicleNumber;
-    
-    @Column(name = "shipment_date")
-    private LocalDateTime shipmentDate;
-    
-    @Column(name = "delivery_date")
-    private LocalDateTime deliveryDate;
-    
-    @Column(length = 1000)
-    private String notes;
+    private String status = "MEMUAT";
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -78,6 +67,14 @@ public class Shipment {
     public void setHarvestId(Long harvestId) {
         this.harvestId = harvestId;
     }
+
+    public Long getSupirUserId() {
+        return supirUserId;
+    }
+
+    public void setSupirUserId(Long supirUserId) {
+        this.supirUserId = supirUserId;
+    }
     
     public String getDestination() {
         return destination;
@@ -87,12 +84,12 @@ public class Shipment {
         this.destination = destination;
     }
     
-    public Double getWeight() {
-        return weight;
+    public Double getTotalKg() {
+        return totalKg;
     }
     
-    public void setWeight(Double weight) {
-        this.weight = weight;
+    public void setTotalKg(Double totalKg) {
+        this.totalKg = totalKg;
     }
     
     public String getStatus() {
@@ -101,46 +98,6 @@ public class Shipment {
     
     public void setStatus(String status) {
         this.status = status;
-    }
-    
-    public String getShipperName() {
-        return shipperName;
-    }
-    
-    public void setShipperName(String shipperName) {
-        this.shipperName = shipperName;
-    }
-    
-    public String getVehicleNumber() {
-        return vehicleNumber;
-    }
-    
-    public void setVehicleNumber(String vehicleNumber) {
-        this.vehicleNumber = vehicleNumber;
-    }
-    
-    public LocalDateTime getShipmentDate() {
-        return shipmentDate;
-    }
-    
-    public void setShipmentDate(LocalDateTime shipmentDate) {
-        this.shipmentDate = shipmentDate;
-    }
-    
-    public LocalDateTime getDeliveryDate() {
-        return deliveryDate;
-    }
-    
-    public void setDeliveryDate(LocalDateTime deliveryDate) {
-        this.deliveryDate = deliveryDate;
-    }
-    
-    public String getNotes() {
-        return notes;
-    }
-    
-    public void setNotes(String notes) {
-        this.notes = notes;
     }
     
     public LocalDateTime getCreatedAt() {
