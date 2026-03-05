@@ -2,6 +2,7 @@ package com.mysawit.shipment.service;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
+import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,14 @@ public class ShipmentService {
     public Shipment getShipmentById(Long id) {
         return shipmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Shipment not found with id: " + id));
+    }
+
+    public Shipment getShipmentByIdForSupirUser(Long id, Long requesterSupirUserId) {
+        Shipment shipment = getShipmentById(id);
+        if (!Objects.equals(shipment.getSupirUserId(), requesterSupirUserId)) {
+            throw new ShipmentForbiddenException(ERR_FORBIDDEN);
+        }
+        return shipment;
     }
 
     public Shipment updateShipmentStatus(Long shipmentId, Long requesterSupirUserId, ShipmentStatus targetStatus) {

@@ -44,7 +44,7 @@ class ShipmentControllerTest {
         Shipment shipment = sampleShipment(1L);
         when(shipmentService.getShipmentById(1L)).thenReturn(shipment);
 
-        ResponseEntity<?> response = shipmentController.getShipmentById(1L);
+        ResponseEntity<?> response = shipmentController.getShipmentById(1L, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertSame(shipment, response.getBody());
@@ -54,7 +54,7 @@ class ShipmentControllerTest {
     void getShipmentByIdPropagatesRuntimeExceptionWhenMissing() {
         when(shipmentService.getShipmentById(1L)).thenThrow(new RuntimeException("missing"));
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentController.getShipmentById(1L));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentController.getShipmentById(1L, null));
 
         assertEquals("missing", exception.getMessage());
     }

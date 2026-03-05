@@ -1,6 +1,7 @@
 package com.mysawit.shipment.service;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,33 @@ class ShipmentServiceTest {
         RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.getShipmentById(1L));
 
         assertEquals("Shipment not found with id: 1", exception.getMessage());
+    }
+
+    @Test
+    void getShipmentByIdForSupirUserReturnsShipmentWhenOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(3L);
+        shipment.setSupirUserId(42L);
+        when(shipmentRepository.findById(3L)).thenReturn(Optional.of(shipment));
+
+        Shipment result = shipmentService.getShipmentByIdForSupirUser(3L, 42L);
+
+        assertSame(shipment, result);
+    }
+
+    @Test
+    void getShipmentByIdForSupirUserThrowsForbiddenWhenNotOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(4L);
+        shipment.setSupirUserId(99L);
+        when(shipmentRepository.findById(4L)).thenReturn(Optional.of(shipment));
+
+        ShipmentForbiddenException exception = assertThrows(
+                ShipmentForbiddenException.class,
+                () -> shipmentService.getShipmentByIdForSupirUser(4L, 42L)
+        );
+
+        assertEquals("Forbidden", exception.getMessage());
     }
 
     @Test

@@ -31,7 +31,11 @@ public class ShipmentController {
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id) {
+    public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id, HttpServletRequest request) {
+        Object userIdAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
+        if (userIdAttr instanceof Long userId) {
+            return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, userId));
+        }
         return ResponseEntity.ok(shipmentService.getShipmentById(id));
     }
     
