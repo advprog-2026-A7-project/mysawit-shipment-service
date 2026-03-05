@@ -2,6 +2,7 @@ package com.mysawit.shipment.controller;
 
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.service.ShipmentService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,11 @@ public class ShipmentController {
     }
     
     @GetMapping
-    public ResponseEntity<List<Shipment>> getAllShipments() {
+    public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
+        Object userIdAttr = request == null ? null : request.getAttribute("jwtUserId");
+        if (userIdAttr instanceof Long userId) {
+            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(userId));
+        }
         return ResponseEntity.ok(shipmentService.getAllShipments());
     }
     

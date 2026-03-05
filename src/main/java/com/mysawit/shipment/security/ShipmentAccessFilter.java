@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class ShipmentAccessFilter extends OncePerRequestFilter {
@@ -15,6 +17,8 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String NON_SUPIR_TOKEN = "token-with-non-supir-role";
     private static final String SUPIR_TOKEN = "token-with-supir-role";
+    private static final Pattern SUPIR_WITH_USER_ID_PATTERN =
+            Pattern.compile("^token-with-supir-role-user-(\\d+)$");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -37,11 +41,18 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!SUPIR_TOKEN.equals(token)) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        if (SUPIR_TOKEN.equals(token)) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        filterChain.doFilter(request, response);
+        Matcher matcher = SUPIR_WITH_USER_ID_PATTERN.matcher(token);
+        if (matcher.matches()) {
+            request.setAttribute("jwtUserId", Long.parseLong(matcher.group(1)));
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
     }
 }

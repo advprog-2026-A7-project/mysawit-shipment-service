@@ -31,7 +31,7 @@ class ShipmentControllerTest {
     void getAllShipmentsReturnsServiceResult() {
         when(shipmentService.getAllShipments()).thenReturn(List.of(sampleShipment(1L), sampleShipment(2L)));
 
-        ResponseEntity<List<Shipment>> response = shipmentController.getAllShipments();
+        ResponseEntity<List<Shipment>> response = shipmentController.getAllShipments(null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2, response.getBody().size());

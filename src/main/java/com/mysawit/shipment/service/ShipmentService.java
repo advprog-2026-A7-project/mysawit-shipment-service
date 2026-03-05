@@ -18,6 +18,10 @@ public class ShipmentService {
     public List<Shipment> getAllShipments() {
         return shipmentRepository.findAll();
     }
+
+    public List<Shipment> getShipmentsBySupirUserId(Long supirUserId) {
+        return shipmentRepository.findBySupirUserId(supirUserId);
+    }
     
     public Shipment getShipmentById(Long id) {
         return shipmentRepository.findById(id)

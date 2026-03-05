@@ -35,6 +35,15 @@ class ShipmentServiceTest {
     }
 
     @Test
+    void getShipmentsBySupirUserIdReturnsRepositoryData() {
+        when(shipmentRepository.findBySupirUserId(42L)).thenReturn(List.of(new Shipment()));
+
+        List<Shipment> result = shipmentService.getShipmentsBySupirUserId(42L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
     void getShipmentByIdReturnsEntity() {
         Shipment shipment = new Shipment();
         when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
