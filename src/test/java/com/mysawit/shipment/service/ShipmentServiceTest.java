@@ -1,18 +1,21 @@
 package com.mysawit.shipment.service;
 
-import com.mysawit.shipment.dto.ShipmentRequest;
+import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class ShipmentServiceTest {
 
@@ -35,6 +38,15 @@ class ShipmentServiceTest {
     }
 
     @Test
+    void getShipmentsBySupirUserIdReturnsRepositoryData() {
+        when(shipmentRepository.findBySupirUserId(42L)).thenReturn(List.of(new Shipment()));
+
+        List<Shipment> result = shipmentService.getShipmentsBySupirUserId(42L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
     void getShipmentByIdReturnsEntity() {
         Shipment shipment = new Shipment();
         when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
@@ -54,109 +66,93 @@ class ShipmentServiceTest {
     }
 
     @Test
-    void getShipmentsByHarvestIdReturnsRepositoryData() {
-        when(shipmentRepository.findByHarvestId(10L)).thenReturn(List.of(new Shipment()));
+    void getShipmentByIdForSupirUserReturnsShipmentWhenOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(3L);
+        shipment.setSupirUserId(42L);
+        when(shipmentRepository.findById(3L)).thenReturn(Optional.of(shipment));
 
-        assertEquals(1, shipmentService.getShipmentsByHarvestId(10L).size());
+        Shipment result = shipmentService.getShipmentByIdForSupirUser(3L, 42L);
+
+        assertSame(shipment, result);
     }
 
     @Test
-    void getShipmentsByStatusReturnsRepositoryData() {
-        when(shipmentRepository.findByStatus("PENDING")).thenReturn(List.of(new Shipment()));
+    void getShipmentByIdForSupirUserThrowsForbiddenWhenNotOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(4L);
+        shipment.setSupirUserId(99L);
+        when(shipmentRepository.findById(4L)).thenReturn(Optional.of(shipment));
 
-        assertEquals(1, shipmentService.getShipmentsByStatus("PENDING").size());
+        ShipmentForbiddenException exception = assertThrows(
+                ShipmentForbiddenException.class,
+                () -> shipmentService.getShipmentByIdForSupirUser(4L, 42L)
+        );
+
+        assertEquals("Forbidden", exception.getMessage());
     }
 
     @Test
-    void createShipmentUsesProvidedStatus() {
-        ShipmentRequest request = sampleRequest("IN_TRANSIT");
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+    void updateShipmentStatusAllowsNextTransitionForOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(7L);
+        shipment.setSupirUserId(42L);
+        shipment.setStatus("MEMUAT");
+        when(shipmentRepository.findById(7L)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
-        Shipment result = shipmentService.createShipment(request);
+        Shipment result = shipmentService.updateShipmentStatus(7L, 42L, ShipmentStatus.MENGIRIM);
 
-        assertEquals("IN_TRANSIT", result.getStatus());
-        assertEquals(10L, result.getHarvestId());
-        assertEquals("Jakarta", result.getDestination());
-        assertEquals(55.0, result.getWeight());
+        assertSame(shipment, result);
+        assertEquals("MENGIRIM", result.getStatus());
+        verify(shipmentRepository).save(shipment);
     }
 
     @Test
-    void createShipmentUsesDefaultStatusWhenNull() {
-        ShipmentRequest request = sampleRequest(null);
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+    void updateShipmentStatusRejectsSkippingTransition() {
+        Shipment shipment = new Shipment();
+        shipment.setId(8L);
+        shipment.setSupirUserId(42L);
+        shipment.setStatus("MEMUAT");
+        when(shipmentRepository.findById(8L)).thenReturn(Optional.of(shipment));
 
-        Shipment result = shipmentService.createShipment(request);
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> shipmentService.updateShipmentStatus(8L, 42L, ShipmentStatus.TIBA)
+        );
 
-        assertEquals("PENDING", result.getStatus());
+        assertEquals("Invalid status transition", exception.getMessage());
     }
 
     @Test
-    void updateShipmentUsesProvidedStatus() {
-        Shipment existing = new Shipment();
-        existing.setId(5L);
-        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(existing));
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+    void updateShipmentStatusRejectsTransitionFromTerminalStatus() {
+        Shipment shipment = new Shipment();
+        shipment.setId(9L);
+        shipment.setSupirUserId(42L);
+        shipment.setStatus("TIBA");
+        when(shipmentRepository.findById(9L)).thenReturn(Optional.of(shipment));
 
-        Shipment result = shipmentService.updateShipment(5L, sampleRequest("DELIVERED"));
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> shipmentService.updateShipmentStatus(9L, 42L, ShipmentStatus.MENGIRIM)
+        );
 
-        assertEquals("DELIVERED", result.getStatus());
-        assertEquals("Jakarta", result.getDestination());
+        assertEquals("Invalid status transition", exception.getMessage());
     }
 
     @Test
-    void updateShipmentUsesDefaultStatusWhenNull() {
-        Shipment existing = new Shipment();
-        existing.setId(5L);
-        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(existing));
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+    void updateShipmentStatusRejectsWhenRequesterIsNotOwner() {
+        Shipment shipment = new Shipment();
+        shipment.setId(10L);
+        shipment.setSupirUserId(99L);
+        shipment.setStatus("MEMUAT");
+        when(shipmentRepository.findById(10L)).thenReturn(Optional.of(shipment));
 
-        Shipment result = shipmentService.updateShipment(5L, sampleRequest(null));
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> shipmentService.updateShipmentStatus(10L, 42L, ShipmentStatus.MENGIRIM)
+        );
 
-        assertEquals("PENDING", result.getStatus());
-    }
-
-    @Test
-    void updateShipmentThrowsWhenMissing() {
-        when(shipmentRepository.findById(5L)).thenReturn(Optional.empty());
-
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.updateShipment(5L, sampleRequest("LOW")));
-
-        assertEquals("Shipment not found with id: 5", exception.getMessage());
-    }
-
-    @Test
-    void deleteShipmentDeletesEntityWhenFound() {
-        Shipment existing = new Shipment();
-        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(existing));
-
-        shipmentService.deleteShipment(5L);
-
-        ArgumentCaptor<Shipment> captor = ArgumentCaptor.forClass(Shipment.class);
-        verify(shipmentRepository).delete(captor.capture());
-        assertSame(existing, captor.getValue());
-    }
-
-    @Test
-    void deleteShipmentThrowsWhenMissing() {
-        when(shipmentRepository.findById(5L)).thenReturn(Optional.empty());
-
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.deleteShipment(5L));
-
-        assertEquals("Shipment not found with id: 5", exception.getMessage());
-        verify(shipmentRepository, never()).delete(any());
-    }
-
-    private ShipmentRequest sampleRequest(String status) {
-        ShipmentRequest request = new ShipmentRequest();
-        request.setHarvestId(10L);
-        request.setDestination("Jakarta");
-        request.setWeight(55.0);
-        request.setStatus(status);
-        request.setShipperName("Shipper");
-        request.setVehicleNumber("B1234CD");
-        request.setShipmentDate(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setDeliveryDate(LocalDateTime.of(2026, 1, 2, 0, 0));
-        request.setNotes("note");
-        return request;
+        assertEquals("Forbidden", exception.getMessage());
     }
 }
