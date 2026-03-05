@@ -10,5 +10,4 @@ import java.util.List;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     List<Shipment> findByHarvestId(Long harvestId);
     List<Shipment> findByStatus(String status);
-    List<Shipment> findByDestination(String destination);
 }
