@@ -4,10 +4,15 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "shipments")
+@Getter
+@Setter
 public class Shipment {
     
     @Id
@@ -49,70 +54,5 @@ public class Shipment {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-    
-    public void setId(Long id) {
-        this.id = id;
-    }
-    
-    public Long getHarvestId() {
-        return harvestId;
-    }
-    
-    public void setHarvestId(Long harvestId) {
-        this.harvestId = harvestId;
-    }
-
-    public Long getSupirUserId() {
-        return supirUserId;
-    }
-
-    public void setSupirUserId(Long supirUserId) {
-        this.supirUserId = supirUserId;
-    }
-    
-    public String getDestination() {
-        return destination;
-    }
-    
-    public void setDestination(String destination) {
-        this.destination = destination;
-    }
-    
-    public Double getTotalKg() {
-        return totalKg;
-    }
-    
-    public void setTotalKg(Double totalKg) {
-        this.totalKg = totalKg;
-    }
-    
-    public String getStatus() {
-        return status;
-    }
-    
-    public void setStatus(String status) {
-        this.status = status;
-    }
-    
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-    
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }
