@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,6 +27,27 @@ class ShipmentStatusUpdateTest {
 
     @MockBean
     private ShipmentService shipmentService;
+
+    @Test
+    void patchStatusWithoutJwtReturnsUnauthorized() throws Exception {
+        mockMvc.perform(patch("/api/shipments/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MENGIRIM\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(shipmentService);
+    }
+
+    @Test
+    void patchStatusWithWrongRoleReturnsForbidden() throws Exception {
+        mockMvc.perform(patch("/api/shipments/1/status")
+                        .header("Authorization", "Bearer token-with-non-supir-role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MENGIRIM\"}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(shipmentService);
+    }
 
     @Test
     void patchStatusUsesSupirUserIdFromJwtClaims() throws Exception {
@@ -59,5 +81,15 @@ class ShipmentStatusUpdateTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("INVALID_STATUS_TRANSITION"))
                 .andExpect(jsonPath("$.message").value("Invalid status transition"));
+    }
+
+    @Test
+    void patchStatusReturnsBadRequestWhenStatusValueUnknown() throws Exception {
+        mockMvc.perform(patch("/api/shipments/1/status")
+                        .header("Authorization", "Bearer token-with-supir-role-user-42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"UNKNOWN\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
     }
 }
