@@ -15,6 +15,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/shipments")
 public class ShipmentController {
+
+    private static final String STATUS_FIELD = "status";
     
     private final ShipmentService shipmentService;
     
@@ -26,8 +28,7 @@ public class ShipmentController {
     public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
         Long requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
-            Long userId = requesterUserId;
-            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(userId));
+            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId));
         }
         return ResponseEntity.ok(shipmentService.getAllShipments());
     }
@@ -36,8 +37,7 @@ public class ShipmentController {
     public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id, HttpServletRequest request) {
         Long requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
-            Long userId = requesterUserId;
-            return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, userId));
+            return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, requesterUserId));
         }
         return ResponseEntity.ok(shipmentService.getShipmentById(id));
     }
@@ -48,8 +48,8 @@ public class ShipmentController {
             @RequestBody Map<String, String> requestBody,
             HttpServletRequest request
     ) {
-        Long requesterUserId = (Long) request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
-        ShipmentStatus targetStatus = ShipmentStatus.valueOf(requestBody.get("status"));
+        Long requesterUserId = extractRequesterUserId(request);
+        ShipmentStatus targetStatus = parseStatus(requestBody);
         return ResponseEntity.ok(shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus));
     }
     
@@ -67,5 +67,9 @@ public class ShipmentController {
             return userId;
         }
         return null;
+    }
+
+    private ShipmentStatus parseStatus(Map<String, String> requestBody) {
+        return ShipmentStatus.valueOf(requestBody.get(STATUS_FIELD));
     }
 }
