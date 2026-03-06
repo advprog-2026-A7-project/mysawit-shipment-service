@@ -4,11 +4,9 @@ import com.mysawit.shipment.model.Shipment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
-    List<Shipment> findByHarvestId(Long harvestId);
-    List<Shipment> findByStatus(String status);
-    List<Shipment> findByDestination(String destination);
+public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
+    java.util.List<Shipment> findBySupirUserId(UUID supirUserId);
 }

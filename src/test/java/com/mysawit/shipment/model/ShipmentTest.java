@@ -3,6 +3,7 @@ package com.mysawit.shipment.model;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,36 +12,29 @@ class ShipmentTest {
     @Test
     void gettersSettersAndDefaultsWork() {
         Shipment shipment = new Shipment();
-        LocalDateTime shipmentDate = LocalDateTime.of(2026, 3, 1, 8, 0);
-        LocalDateTime deliveryDate = LocalDateTime.of(2026, 3, 2, 8, 0);
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 9, 0);
         LocalDateTime updatedAt = LocalDateTime.of(2026, 3, 1, 10, 0);
+        UUID id = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID harvestId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID supirUserId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
-        assertEquals("PENDING", shipment.getStatus());
+        assertEquals("MEMUAT", shipment.getStatus());
 
-        shipment.setId(1L);
-        shipment.setHarvestId(2L);
+        shipment.setId(id);
+        shipment.setHarvestId(harvestId);
+        shipment.setSupirUserId(supirUserId);
         shipment.setDestination("Jakarta");
-        shipment.setWeight(200.0);
-        shipment.setStatus("IN_TRANSIT");
-        shipment.setShipperName("name");
-        shipment.setVehicleNumber("B1234CD");
-        shipment.setShipmentDate(shipmentDate);
-        shipment.setDeliveryDate(deliveryDate);
-        shipment.setNotes("note");
+        shipment.setTotalKg(200.0);
+        shipment.setStatus("MENGIRIM");
         shipment.setCreatedAt(createdAt);
         shipment.setUpdatedAt(updatedAt);
 
-        assertEquals(1L, shipment.getId());
-        assertEquals(2L, shipment.getHarvestId());
+        assertEquals(id, shipment.getId());
+        assertEquals(harvestId, shipment.getHarvestId());
+        assertEquals(supirUserId, shipment.getSupirUserId());
         assertEquals("Jakarta", shipment.getDestination());
-        assertEquals(200.0, shipment.getWeight());
-        assertEquals("IN_TRANSIT", shipment.getStatus());
-        assertEquals("name", shipment.getShipperName());
-        assertEquals("B1234CD", shipment.getVehicleNumber());
-        assertEquals(shipmentDate, shipment.getShipmentDate());
-        assertEquals(deliveryDate, shipment.getDeliveryDate());
-        assertEquals("note", shipment.getNotes());
+        assertEquals(200.0, shipment.getTotalKg());
+        assertEquals("MENGIRIM", shipment.getStatus());
         assertEquals(createdAt, shipment.getCreatedAt());
         assertEquals(updatedAt, shipment.getUpdatedAt());
     }

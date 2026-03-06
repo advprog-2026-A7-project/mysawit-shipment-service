@@ -1,20 +1,23 @@
 package com.mysawit.shipment.controller;
 
-import com.mysawit.shipment.dto.ShipmentRequest;
+import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.security.ShipmentSecurityAttributes;
 import com.mysawit.shipment.service.ShipmentService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/shipments")
 public class ShipmentController {
+
+    private static final String STATUS_FIELD = "status";
     
     private final ShipmentService shipmentService;
     
@@ -23,70 +26,32 @@ public class ShipmentController {
     }
     
     @GetMapping
-    public ResponseEntity<List<Shipment>> getAllShipments(
-            @RequestParam(required = false) Long harvestId,
-            @RequestParam(required = false) String status) {
-        List<Shipment> shipments;
-        if (harvestId != null) {
-            shipments = shipmentService.getShipmentsByHarvestId(harvestId);
-        } else if (status != null) {
-            shipments = shipmentService.getShipmentsByStatus(status);
-        } else {
-            shipments = shipmentService.getAllShipments();
+    public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
+        UUID requesterUserId = extractRequesterUserId(request);
+        if (requesterUserId != null) {
+            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId));
         }
-        return ResponseEntity.ok(shipments);
+        return ResponseEntity.ok(shipmentService.getAllShipments());
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<?> getShipmentById(@PathVariable Long id) {
-        try {
-            Shipment shipment = shipmentService.getShipmentById(id);
-            return ResponseEntity.ok(shipment);
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    public ResponseEntity<Shipment> getShipmentById(@PathVariable UUID id, HttpServletRequest request) {
+        UUID requesterUserId = extractRequesterUserId(request);
+        if (requesterUserId != null) {
+            return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, requesterUserId));
         }
+        return ResponseEntity.ok(shipmentService.getShipmentById(id));
     }
-    
-    @PostMapping
-    public ResponseEntity<?> createShipment(@Valid @RequestBody ShipmentRequest request) {
-        try {
-            Shipment shipment = shipmentService.createShipment(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(shipment);
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-    }
-    
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateShipment(
-            @PathVariable Long id,
-            @Valid @RequestBody ShipmentRequest request) {
-        try {
-            Shipment shipment = shipmentService.updateShipment(id, request);
-            return ResponseEntity.ok(shipment);
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-        }
-    }
-    
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteShipment(@PathVariable Long id) {
-        try {
-            shipmentService.deleteShipment(id);
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Shipment deleted successfully");
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-        }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Shipment> updateShipmentStatus(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> requestBody,
+            HttpServletRequest request
+    ) {
+        UUID requesterUserId = extractRequesterUserId(request);
+        ShipmentStatus targetStatus = parseStatus(requestBody);
+        return ResponseEntity.ok(shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus));
     }
     
     @GetMapping("/health")
@@ -95,5 +60,21 @@ public class ShipmentController {
         health.put("status", "UP");
         health.put("service", "mysawit-shipment-service");
         return ResponseEntity.ok(health);
+    }
+
+    private UUID extractRequesterUserId(HttpServletRequest request) {
+        Object userIdAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
+        if (userIdAttr instanceof UUID userId) {
+            return userId;
+        }
+        return null;
+    }
+
+    private ShipmentStatus parseStatus(Map<String, String> requestBody) {
+        String statusValue = requestBody.get(STATUS_FIELD);
+        if (statusValue == null || statusValue.isBlank()) {
+            throw new IllegalArgumentException("Invalid status value");
+        }
+        return ShipmentStatus.valueOf(statusValue);
     }
 }

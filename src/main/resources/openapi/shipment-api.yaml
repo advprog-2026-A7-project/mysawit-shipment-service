@@ -28,13 +28,6 @@ paths:
       operationId: listMyShipments
       security:
         - bearerAuth: []
-      parameters:
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/ShipmentStatus'
-          description: Optional status filter.
       responses:
         "200":
           description: List of owned shipments
@@ -63,7 +56,7 @@ paths:
                 forbiddenRole:
                   value: { error: "Forbidden" }
 
-  /api/shipments/{shipmentId}:
+  /api/shipments/{id}:
     get:
       tags: [Shipments]
       summary: Get shipment detail (owner only)
@@ -71,12 +64,12 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: shipmentId
+        - name: id
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            format: uuid
       responses:
         "200":
           description: Shipment detail
@@ -98,7 +91,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
                 notOwner:
-                  value: { error: "Forbidden: not shipment owner" }
+                  value:
+                    error: FORBIDDEN
+                    message: Forbidden
         "404":
           description: Shipment not found
           content:
@@ -107,9 +102,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
                 notFound:
-                  value: { error: "Shipment not found" }
+                  value:
+                    error: NOT_FOUND
+                    message: Shipment not found with id: 8f2189a4-a032-495a-8138-cbf5e83f9c89
 
-  /api/shipments/{shipmentId}/status:
+  /api/shipments/{id}/status:
     patch:
       tags: [Shipments]
       summary: Update shipment status (owner SUPIR only)
@@ -121,12 +118,12 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: shipmentId
+        - name: id
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -148,7 +145,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
                 invalidStatus:
-                  value: { error: "Invalid status value" }
+                  value:
+                    error: BAD_REQUEST
+                    message: Invalid status value
         "401":
           description: Missing or invalid JWT
           content:
@@ -175,7 +174,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
                 invalidTransition:
-                  value: { error: "Invalid status transition" }
+                  value:
+                    error: INVALID_STATUS_TRANSITION
+                    message: Invalid status transition
 
   /api/shipments/health:
     get:
@@ -207,14 +208,14 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         harvestId:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         supirUserId:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
           description: Owner userId from JWT claim.
         destination:
           type: string
@@ -253,6 +254,8 @@ components:
       type: object
       properties:
         error:
+          type: string
+        message:
           type: string
       required:
         - error

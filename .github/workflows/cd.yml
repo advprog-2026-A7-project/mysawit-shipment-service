@@ -1,12 +1,9 @@
 name: CD - Deploy Shipment to EC2
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      deploy_ref:
-        description: Git ref to deploy (main only)
-        required: false
-        default: main
 
 permissions:
   contents: read
@@ -40,11 +37,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event.inputs.deploy_ref }}" != "main" ]; then
-            echo "::error::deploy_ref must be 'main'"
-            exit 1
-          fi
-
           required_secrets=(
             STAGING_HOST
             STAGING_USER
@@ -70,8 +62,6 @@ jobs:
 
       - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.deploy_ref }}
 
       - name: Set deploy metadata
         run: |
