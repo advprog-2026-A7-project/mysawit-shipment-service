@@ -36,3 +36,11 @@ out/
 
 ### VS Code ###
 .vscode/
+
+context/
+.skills*
+.agents
+AGENTS.md
+skills-lock.json
+
+.env

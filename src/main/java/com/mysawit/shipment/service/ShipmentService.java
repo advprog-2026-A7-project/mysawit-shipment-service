@@ -1,5 +1,12 @@
 package com.mysawit.shipment.service;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
@@ -7,11 +14,6 @@ import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class ShipmentService {
@@ -45,12 +47,13 @@ public class ShipmentService {
         return shipment;
     }
 
+    @Transactional
     public Shipment updateShipmentStatus(UUID shipmentId, UUID requesterSupirUserId, ShipmentStatus targetStatus) {
         Shipment shipment = getShipmentById(shipmentId);
         ensureOwnedByRequester(shipment, requesterSupirUserId);
         ensureValidStatusTransition(shipment, targetStatus);
 
-        shipment.setStatus(targetStatus.name());
+        shipment.setStatus(targetStatus);
         return shipmentRepository.save(shipment);
     }
 
@@ -61,7 +64,7 @@ public class ShipmentService {
     }
 
     private void ensureValidStatusTransition(Shipment shipment, ShipmentStatus targetStatus) {
-        ShipmentStatus currentStatus = ShipmentStatus.valueOf(shipment.getStatus());
+        ShipmentStatus currentStatus = shipment.getStatus();
         if (!ShipmentStatusTransitionPolicy.canTransition(currentStatus, targetStatus)) {
             throw new ShipmentInvalidTransitionException(ERR_INVALID_STATUS_TRANSITION);
         }

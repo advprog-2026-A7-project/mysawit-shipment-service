@@ -1,25 +1,27 @@
 package com.mysawit.shipment.security;
 
+import java.io.IOException;
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 public class ShipmentAccessFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String NON_SUPIR_TOKEN = "token-with-non-supir-role";
-    private static final String SUPIR_TOKEN = "token-with-supir-role";
-    private static final Pattern SUPIR_WITH_USER_ID_PATTERN =
-            Pattern.compile("^token-with-supir-role-user-([0-9a-fA-F\\-]{36})$");
+    private static final String REQUIRED_ROLE = "SUPIR";
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    public ShipmentAccessFilter(JwtTokenProvider jwtTokenProvider) {
+        this.jwtTokenProvider = jwtTokenProvider;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -37,28 +39,27 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(BEARER_PREFIX.length());
-        if (NON_SUPIR_TOKEN.equals(token)) {
+        if (!jwtTokenProvider.validateToken(token)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+            return;
+        }
+
+        String role = jwtTokenProvider.getRole(token);
+        if (!REQUIRED_ROLE.equals(role)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
             return;
         }
 
-        if (SUPIR_TOKEN.equals(token)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        Matcher matcher = SUPIR_WITH_USER_ID_PATTERN.matcher(token);
-        if (matcher.matches()) {
+        String userId = jwtTokenProvider.getUserId(token);
+        if (userId != null) {
             try {
-                request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, UUID.fromString(matcher.group(1)));
+                request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, UUID.fromString(userId));
             } catch (IllegalArgumentException ex) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
                 return;
             }
-            filterChain.doFilter(request, response);
-            return;
         }
 
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        filterChain.doFilter(request, response);
     }
 }

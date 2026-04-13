@@ -1,12 +1,12 @@
 package com.mysawit.shipment.exception;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestControllerAdvice
 public class ShipmentExceptionHandler {
@@ -37,9 +37,8 @@ public class ShipmentExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
-        Map<String, String> body = new HashMap<>();
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(buildError("INTERNAL_SERVER_ERROR", "An unexpected error occurred"));
     }
 
     private Map<String, String> buildError(String code, String message) {
