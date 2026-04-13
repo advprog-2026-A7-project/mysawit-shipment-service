@@ -41,7 +41,7 @@ class ShipmentOwnershipListTest {
         Shipment owned = new Shipment();
         owned.setId(SHIPMENT_ID);
         owned.setSupirUserId(SUPIR_ID);
-        owned.setHarvestId(HARVEST_ID);
+        owned.setMandorUserId(UUID.fromString("55555555-5555-5555-5555-555555555555"));
         owned.setDestination("Pabrik A");
         owned.setTotalKg(120.0);
         owned.setStatus(ShipmentStatus.MEMUAT);

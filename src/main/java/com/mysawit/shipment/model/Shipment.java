@@ -34,10 +34,6 @@ public class Shipment {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
-    @NotNull(message = "Harvest ID is required")
-    @Column(name = "harvest_id", nullable = false)
-    private UUID harvestId;
 
     @NotNull(message = "Mandor user ID is required")
     @Column(name = "mandor_user_id", nullable = false)

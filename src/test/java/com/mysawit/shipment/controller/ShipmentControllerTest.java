@@ -78,7 +78,7 @@ class ShipmentControllerTest {
     private Shipment sampleShipment(UUID id) {
         Shipment shipment = new Shipment();
         shipment.setId(id);
-        shipment.setHarvestId(UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"));
+        shipment.setMandorUserId(UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"));
         shipment.setSupirUserId(UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222"));
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(100.0);
