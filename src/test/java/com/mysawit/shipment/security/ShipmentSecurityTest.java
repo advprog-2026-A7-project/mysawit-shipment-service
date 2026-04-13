@@ -12,6 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mysawit.shipment.controller.ShipmentController;
@@ -40,11 +41,21 @@ class ShipmentSecurityTest {
 
     @Test
     void getShipmentsWithWrongRoleReturnsForbidden() throws Exception {
+        String buruhToken = JwtFixture.tokenWithRole(SUPIR_ID.toString(), "BURUH");
+
+        mockMvc.perform(get(SHIPMENTS_PATH)
+                        .header(AUTHORIZATION_HEADER, BEARER_PREFIX + buruhToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getShipmentsWithMandorTokenReturnsOk() throws Exception {
         String mandorToken = JwtFixture.mandorToken(SUPIR_ID.toString());
+        when(shipmentService.getAllShipments()).thenReturn(List.of());
 
         mockMvc.perform(get(SHIPMENTS_PATH)
                         .header(AUTHORIZATION_HEADER, BEARER_PREFIX + mandorToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -80,6 +91,28 @@ class ShipmentSecurityTest {
         mockMvc.perform(get(SHIPMENTS_PATH)
                         .header(AUTHORIZATION_HEADER, BEARER_PREFIX + invalidUserIdToken))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void filterSetsRoleAttributeForSupirToken() throws Exception {
+        String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
+        when(shipmentService.getShipmentsBySupirUserId(SUPIR_ID)).thenReturn(List.of());
+
+        mockMvc.perform(get(SHIPMENTS_PATH)
+                        .header(AUTHORIZATION_HEADER, BEARER_PREFIX + supirToken))
+                .andExpect(status().isOk())
+                .andExpect(request().attribute(ShipmentSecurityAttributes.JWT_ROLE, "SUPIR"));
+    }
+
+    @Test
+    void filterSetsRoleAttributeForMandorToken() throws Exception {
+        String mandorToken = JwtFixture.mandorToken(SUPIR_ID.toString());
+        when(shipmentService.getAllShipments()).thenReturn(List.of());
+
+        mockMvc.perform(get(SHIPMENTS_PATH)
+                        .header(AUTHORIZATION_HEADER, BEARER_PREFIX + mandorToken))
+                .andExpect(status().isOk())
+                .andExpect(request().attribute(ShipmentSecurityAttributes.JWT_ROLE, "MANDOR"));
     }
 
     @Test
