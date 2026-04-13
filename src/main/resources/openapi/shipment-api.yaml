@@ -210,9 +210,10 @@ components:
         id:
           type: string
           format: uuid
-        harvestId:
+        mandorUserId:
           type: string
           format: uuid
+          description: Mandor who created the shipment.
         supirUserId:
           type: string
           format: uuid
@@ -226,6 +227,10 @@ components:
           exclusiveMinimum: true
         status:
           $ref: '#/components/schemas/ShipmentStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentItemResponse'
         createdAt:
           type: string
           format: date-time
@@ -234,13 +239,29 @@ components:
           format: date-time
       required:
         - id
-        - harvestId
+        - mandorUserId
         - supirUserId
         - destination
         - totalKg
         - status
+        - items
         - createdAt
         - updatedAt
+
+    ShipmentItemResponse:
+      type: object
+      properties:
+        harvestId:
+          type: string
+          format: uuid
+        weightKg:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+        - harvestId
+        - weightKg
 
     UpdateShipmentStatusRequest:
       type: object

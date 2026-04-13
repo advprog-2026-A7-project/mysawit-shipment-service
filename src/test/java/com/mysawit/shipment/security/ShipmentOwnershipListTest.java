@@ -28,7 +28,6 @@ class ShipmentOwnershipListTest {
 
     private static final UUID SHIPMENT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID SUPIR_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
-    private static final UUID HARVEST_ID = UUID.fromString("10101010-1010-1010-1010-101010101010");
 
     @Autowired
     private MockMvc mockMvc;
