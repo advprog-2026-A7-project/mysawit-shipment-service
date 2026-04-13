@@ -54,9 +54,9 @@ class ShipmentStatusUpdateTest {
 
     @Test
     void patchStatusWithWrongRoleReturnsForbidden() throws Exception {
-        String mandorToken = JwtFixture.mandorToken(SUPIR_42_ID.toString());
+        String buruhToken = JwtFixture.tokenWithRole(SUPIR_42_ID.toString(), "BURUH");
 
-        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + mandorToken, MENGIRIM_BODY))
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + buruhToken, MENGIRIM_BODY))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(shipmentService);

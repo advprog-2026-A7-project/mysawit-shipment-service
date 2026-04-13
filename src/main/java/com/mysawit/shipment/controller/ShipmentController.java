@@ -33,8 +33,9 @@ public class ShipmentController {
     
     @GetMapping
     public ResponseEntity<List<ShipmentResponse>> getAllShipments(HttpServletRequest request) {
+        String role = extractRequesterRole(request);
         UUID requesterUserId = extractRequesterUserId(request);
-        if (requesterUserId != null) {
+        if ("SUPIR".equals(role) && requesterUserId != null) {
             return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId)
                     .stream().map(ShipmentResponse::fromEntity).toList());
         }
@@ -76,6 +77,14 @@ public class ShipmentController {
         Object userIdAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_USER_ID);
         if (userIdAttr instanceof UUID userId) {
             return userId;
+        }
+        return null;
+    }
+
+    private String extractRequesterRole(HttpServletRequest request) {
+        Object roleAttr = request == null ? null : request.getAttribute(ShipmentSecurityAttributes.JWT_ROLE);
+        if (roleAttr instanceof String role) {
+            return role;
         }
         return null;
     }
