@@ -19,16 +19,14 @@ class ShipmentTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 9, 0);
         LocalDateTime updatedAt = LocalDateTime.of(2026, 3, 1, 10, 0);
         UUID id = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        UUID harvestId = UUID.fromString("22222222-2222-2222-2222-222222222222");
-        UUID supirUserId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID mandorUserId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        UUID supirUserId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
         assertEquals(ShipmentStatus.MEMUAT, shipment.getStatus());
 
         shipment.setId(id);
-        shipment.setHarvestId(harvestId);
-        shipment.setSupirUserId(supirUserId);
         shipment.setMandorUserId(mandorUserId);
+        shipment.setSupirUserId(supirUserId);
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(200.0);
         shipment.setStatus(ShipmentStatus.MENGIRIM);
@@ -36,9 +34,8 @@ class ShipmentTest {
         shipment.setUpdatedAt(updatedAt);
 
         assertEquals(id, shipment.getId());
-        assertEquals(harvestId, shipment.getHarvestId());
-        assertEquals(supirUserId, shipment.getSupirUserId());
         assertEquals(mandorUserId, shipment.getMandorUserId());
+        assertEquals(supirUserId, shipment.getSupirUserId());
         assertEquals("Jakarta", shipment.getDestination());
         assertEquals(200.0, shipment.getTotalKg());
         assertEquals(ShipmentStatus.MENGIRIM, shipment.getStatus());
