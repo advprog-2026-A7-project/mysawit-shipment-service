@@ -3,9 +3,9 @@ info:
   title: MySawit Shipment Service API
   version: 1.0.0
   description: >
-    Milestone 25% contract for Shipment Service.
+    Shipment Service API contract.
     Security rules:
-    - JWT required (401 if missing/invalid)
+    - JWT required with valid signature (401 if missing/invalid/expired)
     - SUPIR role required (403 if wrong role)
     - Owner-only access by JWT claim userId (403 if not owner)
 
