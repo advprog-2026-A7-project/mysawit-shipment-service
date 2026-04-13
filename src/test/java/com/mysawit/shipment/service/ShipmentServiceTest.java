@@ -5,18 +5,22 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
+import com.mysawit.shipment.exception.ShipmentWeightExceededException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.repository.ShipmentRepository;
 
@@ -31,6 +35,9 @@ class ShipmentServiceTest {
     private static final UUID ID_10 = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID OWNER_42 = UUID.fromString("42424242-4242-4242-4242-424242424242");
     private static final UUID OWNER_99 = UUID.fromString("99999999-4242-4242-4242-424242424242");
+    private static final UUID MANDOR_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static final UUID HARVEST_B = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
     private ShipmentRepository shipmentRepository;
     private ShipmentService shipmentService;
@@ -167,5 +174,70 @@ class ShipmentServiceTest {
         );
 
         assertEquals("Forbidden", exception.getMessage());
+    }
+
+    @Test
+    void createShipmentSavesEntityWithCalculatedTotalKg() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42, "Jakarta",
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 150.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
+
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Shipment result = shipmentService.createShipment(MANDOR_ID, request);
+
+        assertEquals(MANDOR_ID, result.getMandorUserId());
+        assertEquals(OWNER_42, result.getSupirUserId());
+        assertEquals("Jakarta", result.getDestination());
+        assertEquals(350.0, result.getTotalKg());
+        assertEquals(ShipmentStatus.MEMUAT, result.getStatus());
+        assertEquals(2, result.getItems().size());
+        verify(shipmentRepository).save(any(Shipment.class));
+    }
+
+    @Test
+    void createShipmentRejectsWhenTotalWeightExceeds400Kg() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42, "Jakarta",
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 300.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_B, 150.0)));
+
+        ShipmentWeightExceededException exception = assertThrows(
+                ShipmentWeightExceededException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Total weight 450.0 kg exceeds maximum of 400 kg", exception.getMessage());
+    }
+
+    @Test
+    void createShipmentAllowsExactly400Kg() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42, "Jakarta",
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 200.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
+
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Shipment result = shipmentService.createShipment(MANDOR_ID, request);
+
+        assertNotNull(result);
+        assertEquals(400.0, result.getTotalKg());
+    }
+
+    @Test
+    void createShipmentSetsItemBackReferences() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42, "Jakarta",
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0)));
+
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Shipment result = shipmentService.createShipment(MANDOR_ID, request);
+
+        assertSame(result, result.getItems().get(0).getShipment());
+        assertEquals(HARVEST_A, result.getItems().get(0).getHarvestId());
+        assertEquals(100.0, result.getItems().get(0).getWeightKg());
     }
 }
