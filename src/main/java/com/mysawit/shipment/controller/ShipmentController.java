@@ -1,24 +1,30 @@
 package com.mysawit.shipment.controller;
 
-import com.mysawit.shipment.domain.ShipmentStatus;
-import com.mysawit.shipment.model.Shipment;
-import com.mysawit.shipment.security.ShipmentSecurityAttributes;
-import com.mysawit.shipment.service.ShipmentService;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.dto.ShipmentResponse;
+import com.mysawit.shipment.dto.UpdateStatusRequest;
+import com.mysawit.shipment.security.ShipmentSecurityAttributes;
+import com.mysawit.shipment.service.ShipmentService;
+
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/shipments")
 public class ShipmentController {
 
-    private static final String STATUS_FIELD = "status";
-    
     private final ShipmentService shipmentService;
     
     public ShipmentController(ShipmentService shipmentService) {
@@ -26,32 +32,36 @@ public class ShipmentController {
     }
     
     @GetMapping
-    public ResponseEntity<List<Shipment>> getAllShipments(HttpServletRequest request) {
+    public ResponseEntity<List<ShipmentResponse>> getAllShipments(HttpServletRequest request) {
         UUID requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
-            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId));
+            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId)
+                    .stream().map(ShipmentResponse::fromEntity).toList());
         }
-        return ResponseEntity.ok(shipmentService.getAllShipments());
+        return ResponseEntity.ok(shipmentService.getAllShipments()
+                .stream().map(ShipmentResponse::fromEntity).toList());
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Shipment> getShipmentById(@PathVariable UUID id, HttpServletRequest request) {
+    public ResponseEntity<ShipmentResponse> getShipmentById(@PathVariable UUID id, HttpServletRequest request) {
         UUID requesterUserId = extractRequesterUserId(request);
         if (requesterUserId != null) {
-            return ResponseEntity.ok(shipmentService.getShipmentByIdForSupirUser(id, requesterUserId));
+            return ResponseEntity.ok(ShipmentResponse.fromEntity(
+                    shipmentService.getShipmentByIdForSupirUser(id, requesterUserId)));
         }
-        return ResponseEntity.ok(shipmentService.getShipmentById(id));
+        return ResponseEntity.ok(ShipmentResponse.fromEntity(shipmentService.getShipmentById(id)));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Shipment> updateShipmentStatus(
+    public ResponseEntity<ShipmentResponse> updateShipmentStatus(
             @PathVariable UUID id,
-            @RequestBody Map<String, String> requestBody,
+            @RequestBody UpdateStatusRequest requestBody,
             HttpServletRequest request
     ) {
         UUID requesterUserId = extractRequesterUserId(request);
         ShipmentStatus targetStatus = parseStatus(requestBody);
-        return ResponseEntity.ok(shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus));
+        return ResponseEntity.ok(ShipmentResponse.fromEntity(
+                shipmentService.updateShipmentStatus(id, requesterUserId, targetStatus)));
     }
     
     @GetMapping("/health")
@@ -70,8 +80,8 @@ public class ShipmentController {
         return null;
     }
 
-    private ShipmentStatus parseStatus(Map<String, String> requestBody) {
-        String statusValue = requestBody.get(STATUS_FIELD);
+    private ShipmentStatus parseStatus(UpdateStatusRequest requestBody) {
+        String statusValue = requestBody.status();
         if (statusValue == null || statusValue.isBlank()) {
             throw new IllegalArgumentException("Invalid status value");
         }

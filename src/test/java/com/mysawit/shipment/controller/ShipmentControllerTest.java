@@ -1,22 +1,23 @@
 package com.mysawit.shipment.controller;
 
-import com.mysawit.shipment.model.Shipment;
-import com.mysawit.shipment.service.ShipmentService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.dto.ShipmentResponse;
+import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.service.ShipmentService;
 
 class ShipmentControllerTest {
 
@@ -36,7 +37,7 @@ class ShipmentControllerTest {
     void getAllShipmentsReturnsServiceResult() {
         when(shipmentService.getAllShipments()).thenReturn(List.of(sampleShipment(ID_1), sampleShipment(ID_2)));
 
-        ResponseEntity<List<Shipment>> response = shipmentController.getAllShipments(null);
+        ResponseEntity<List<ShipmentResponse>> response = shipmentController.getAllShipments(null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2, response.getBody().size());
@@ -44,14 +45,16 @@ class ShipmentControllerTest {
     }
 
     @Test
-    void getShipmentByIdReturnsShipment() {
+    void getShipmentByIdReturnsShipmentResponse() {
         Shipment shipment = sampleShipment(ID_1);
         when(shipmentService.getShipmentById(ID_1)).thenReturn(shipment);
 
-        ResponseEntity<?> response = shipmentController.getShipmentById(ID_1, null);
+        ResponseEntity<ShipmentResponse> response = shipmentController.getShipmentById(ID_1, null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertSame(shipment, response.getBody());
+        assertEquals(ID_1, response.getBody().id());
+        assertEquals("Jakarta", response.getBody().destination());
+        assertEquals(ShipmentStatus.MEMUAT, response.getBody().status());
     }
 
     @Test
@@ -79,7 +82,7 @@ class ShipmentControllerTest {
         shipment.setSupirUserId(UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222"));
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(100.0);
-        shipment.setStatus("MEMUAT");
+        shipment.setStatus(ShipmentStatus.MEMUAT);
         return shipment;
     }
 }
