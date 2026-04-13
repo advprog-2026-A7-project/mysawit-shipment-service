@@ -56,6 +56,52 @@ paths:
                 forbiddenRole:
                   value: { error: "Forbidden" }
 
+    post:
+      tags: [Shipments]
+      summary: Create a new shipment (MANDOR only)
+      description: >
+        Mandor creates a shipment by selecting APPROVED harvests and assigning a supir.
+        Total weight must not exceed 400 kg.
+      operationId: createShipment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShipmentRequest'
+      responses:
+        "201":
+          description: Shipment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentResponse'
+        "400":
+          description: Validation error or weight exceeds 400 kg
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weightExceeded:
+                  value:
+                    error: WEIGHT_EXCEEDED
+                    message: Total weight 450.0 kg exceeds maximum of 400 kg
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role (not MANDOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/shipments/{id}:
     get:
       tags: [Shipments]
@@ -270,6 +316,41 @@ components:
           $ref: '#/components/schemas/ShipmentStatus'
       required:
         - status
+
+    CreateShipmentRequest:
+      type: object
+      properties:
+        supirUserId:
+          type: string
+          format: uuid
+          description: Driver assigned to this shipment.
+        destination:
+          type: string
+          description: Delivery destination.
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/HarvestItemRequest'
+      required:
+        - supirUserId
+        - destination
+        - items
+
+    HarvestItemRequest:
+      type: object
+      properties:
+        harvestId:
+          type: string
+          format: uuid
+        weightKg:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+        - harvestId
+        - weightKg
 
     ErrorResponse:
       type: object
