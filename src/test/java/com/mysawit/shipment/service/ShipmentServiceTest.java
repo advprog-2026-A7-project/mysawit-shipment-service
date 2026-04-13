@@ -1,12 +1,5 @@
 package com.mysawit.shipment.service;
 
-import com.mysawit.shipment.domain.ShipmentStatus;
-import com.mysawit.shipment.exception.ShipmentForbiddenException;
-import com.mysawit.shipment.model.Shipment;
-import com.mysawit.shipment.repository.ShipmentRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,9 +7,18 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.exception.ShipmentForbiddenException;
+import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
+import com.mysawit.shipment.exception.ShipmentNotFoundException;
+import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.repository.ShipmentRepository;
 
 class ShipmentServiceTest {
 
@@ -71,7 +73,7 @@ class ShipmentServiceTest {
     void getShipmentByIdThrowsWhenMissing() {
         when(shipmentRepository.findById(ID_1)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> shipmentService.getShipmentById(ID_1));
+        ShipmentNotFoundException exception = assertThrows(ShipmentNotFoundException.class, () -> shipmentService.getShipmentById(ID_1));
 
         assertEquals("Shipment not found with id: " + ID_1, exception.getMessage());
     }
@@ -108,14 +110,14 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_7);
         shipment.setSupirUserId(OWNER_42);
-        shipment.setStatus("MEMUAT");
+        shipment.setStatus(ShipmentStatus.MEMUAT);
         when(shipmentRepository.findById(ID_7)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.updateShipmentStatus(ID_7, OWNER_42, ShipmentStatus.MENGIRIM);
 
         assertSame(shipment, result);
-        assertEquals("MENGIRIM", result.getStatus());
+        assertEquals(ShipmentStatus.MENGIRIM, result.getStatus());
         verify(shipmentRepository).save(shipment);
     }
 
@@ -124,11 +126,11 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_8);
         shipment.setSupirUserId(OWNER_42);
-        shipment.setStatus("MEMUAT");
+        shipment.setStatus(ShipmentStatus.MEMUAT);
         when(shipmentRepository.findById(ID_8)).thenReturn(Optional.of(shipment));
 
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
+        ShipmentInvalidTransitionException exception = assertThrows(
+                ShipmentInvalidTransitionException.class,
                 () -> shipmentService.updateShipmentStatus(ID_8, OWNER_42, ShipmentStatus.TIBA)
         );
 
@@ -140,11 +142,11 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_9);
         shipment.setSupirUserId(OWNER_42);
-        shipment.setStatus("TIBA");
+        shipment.setStatus(ShipmentStatus.TIBA);
         when(shipmentRepository.findById(ID_9)).thenReturn(Optional.of(shipment));
 
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
+        ShipmentInvalidTransitionException exception = assertThrows(
+                ShipmentInvalidTransitionException.class,
                 () -> shipmentService.updateShipmentStatus(ID_9, OWNER_42, ShipmentStatus.MENGIRIM)
         );
 
@@ -156,11 +158,11 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_10);
         shipment.setSupirUserId(OWNER_99);
-        shipment.setStatus("MEMUAT");
+        shipment.setStatus(ShipmentStatus.MEMUAT);
         when(shipmentRepository.findById(ID_10)).thenReturn(Optional.of(shipment));
 
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
+        ShipmentForbiddenException exception = assertThrows(
+                ShipmentForbiddenException.class,
                 () -> shipmentService.updateShipmentStatus(ID_10, OWNER_42, ShipmentStatus.MENGIRIM)
         );
 
