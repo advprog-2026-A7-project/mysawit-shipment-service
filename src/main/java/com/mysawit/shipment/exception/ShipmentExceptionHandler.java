@@ -29,6 +29,12 @@ public class ShipmentExceptionHandler {
                 .body(buildError("INVALID_STATUS_TRANSITION", ex.getMessage()));
     }
 
+    @ExceptionHandler(ShipmentWeightExceededException.class)
+    public ResponseEntity<Map<String, String>> handleWeightExceeded(ShipmentWeightExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildError("WEIGHT_EXCEEDED", ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

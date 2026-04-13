@@ -38,6 +38,7 @@ class ShipmentServiceTest {
     private static final UUID MANDOR_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final UUID HARVEST_B = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    private static final String DESTINATION = "Jakarta";
 
     private ShipmentRepository shipmentRepository;
     private ShipmentService shipmentService;
@@ -179,7 +180,7 @@ class ShipmentServiceTest {
     @Test
     void createShipmentSavesEntityWithCalculatedTotalKg() {
         CreateShipmentRequest request = new CreateShipmentRequest(
-                OWNER_42, "Jakarta",
+                OWNER_42, DESTINATION,
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 150.0),
                         new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
 
@@ -189,7 +190,7 @@ class ShipmentServiceTest {
 
         assertEquals(MANDOR_ID, result.getMandorUserId());
         assertEquals(OWNER_42, result.getSupirUserId());
-        assertEquals("Jakarta", result.getDestination());
+        assertEquals(DESTINATION, result.getDestination());
         assertEquals(350.0, result.getTotalKg());
         assertEquals(ShipmentStatus.MEMUAT, result.getStatus());
         assertEquals(2, result.getItems().size());
@@ -199,7 +200,7 @@ class ShipmentServiceTest {
     @Test
     void createShipmentRejectsWhenTotalWeightExceeds400Kg() {
         CreateShipmentRequest request = new CreateShipmentRequest(
-                OWNER_42, "Jakarta",
+                OWNER_42, DESTINATION,
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 300.0),
                         new CreateShipmentRequest.HarvestItem(HARVEST_B, 150.0)));
 
@@ -214,7 +215,7 @@ class ShipmentServiceTest {
     @Test
     void createShipmentAllowsExactly400Kg() {
         CreateShipmentRequest request = new CreateShipmentRequest(
-                OWNER_42, "Jakarta",
+                OWNER_42, DESTINATION,
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 200.0),
                         new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
 
@@ -229,7 +230,7 @@ class ShipmentServiceTest {
     @Test
     void createShipmentSetsItemBackReferences() {
         CreateShipmentRequest request = new CreateShipmentRequest(
-                OWNER_42, "Jakarta",
+                OWNER_42, DESTINATION,
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0)));
 
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));

@@ -10,12 +10,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
+import com.mysawit.shipment.exception.ShipmentWeightExceededException;
 import com.mysawit.shipment.security.JwtFixture;
 import com.mysawit.shipment.security.JwtTokenProvider;
 import com.mysawit.shipment.service.ShipmentService;
@@ -25,9 +27,16 @@ import com.mysawit.shipment.service.ShipmentService;
 @ActiveProfiles("test")
 class ShipmentErrorHandlingTest {
 
+    private static final String SHIPMENTS_PATH = "/api/shipments/";
+    private static final String AUTH_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String JSON_ERROR = "$.error";
+    private static final String JSON_MESSAGE = "$.message";
+
     private static final UUID NOT_FOUND_ID = UUID.fromString("40404040-4040-4040-4040-404040404040");
     private static final UUID FORBIDDEN_ID = UUID.fromString("40340340-3403-4034-0340-340340340340");
     private static final UUID LEGACY_ERROR_ID = UUID.fromString("50050050-0500-5005-0050-050050050050");
+    private static final UUID WEIGHT_ID = UUID.fromString("60060060-0600-6006-0060-060060060060");
     private static final UUID SUPIR_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
 
     @Autowired
@@ -41,13 +50,10 @@ class ShipmentErrorHandlingTest {
         when(shipmentService.getShipmentByIdForSupirUser(NOT_FOUND_ID, SUPIR_ID))
                 .thenThrow(new ShipmentNotFoundException("Shipment not found with id: " + NOT_FOUND_ID));
 
-        String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
-
-        mockMvc.perform(get("/api/shipments/" + NOT_FOUND_ID)
-                        .header("Authorization", "Bearer " + supirToken))
+        performGetShipment(NOT_FOUND_ID)
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("Shipment not found with id: " + NOT_FOUND_ID));
+                .andExpect(jsonPath(JSON_ERROR).value("NOT_FOUND"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Shipment not found with id: " + NOT_FOUND_ID));
     }
 
     @Test
@@ -55,13 +61,10 @@ class ShipmentErrorHandlingTest {
         when(shipmentService.getShipmentByIdForSupirUser(FORBIDDEN_ID, SUPIR_ID))
                 .thenThrow(new ShipmentForbiddenException("Forbidden"));
 
-        String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
-
-        mockMvc.perform(get("/api/shipments/" + FORBIDDEN_ID)
-                        .header("Authorization", "Bearer " + supirToken))
+        performGetShipment(FORBIDDEN_ID)
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("Forbidden"));
+                .andExpect(jsonPath(JSON_ERROR).value("FORBIDDEN"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Forbidden"));
     }
 
     @Test
@@ -69,12 +72,26 @@ class ShipmentErrorHandlingTest {
         when(shipmentService.getShipmentByIdForSupirUser(LEGACY_ERROR_ID, SUPIR_ID))
                 .thenThrow(new RuntimeException("missing"));
 
-        String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
-
-        mockMvc.perform(get("/api/shipments/" + LEGACY_ERROR_ID)
-                        .header("Authorization", "Bearer " + supirToken))
+        performGetShipment(LEGACY_ERROR_ID)
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.error").value("INTERNAL_SERVER_ERROR"))
-                .andExpect(jsonPath("$.message").value("An unexpected error occurred"));
+                .andExpect(jsonPath(JSON_ERROR).value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("An unexpected error occurred"));
+    }
+
+    @Test
+    void getShipmentByIdReturnsWeightExceededErrorContract() throws Exception {
+        when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
+                .thenThrow(new ShipmentWeightExceededException("Total weight 450.0 kg exceeds maximum of 400 kg"));
+
+        performGetShipment(WEIGHT_ID)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath(JSON_ERROR).value("WEIGHT_EXCEEDED"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Total weight 450.0 kg exceeds maximum of 400 kg"));
+    }
+
+    private ResultActions performGetShipment(UUID shipmentId) throws Exception {
+        String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
+        return mockMvc.perform(get(SHIPMENTS_PATH + shipmentId)
+                .header(AUTH_HEADER, BEARER_PREFIX + supirToken));
     }
 }
