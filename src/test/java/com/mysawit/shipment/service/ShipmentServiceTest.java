@@ -14,12 +14,14 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mysawit.shipment.client.HarvestServiceClient;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
+import com.mysawit.shipment.event.ShipmentEventPublisher;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
 import com.mysawit.shipment.exception.HarvestValidationException;
@@ -27,6 +29,7 @@ import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.exception.ShipmentWeightExceededException;
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.model.ShipmentItem;
 import com.mysawit.shipment.repository.ShipmentRepository;
 
 class ShipmentServiceTest {
@@ -39,6 +42,7 @@ class ShipmentServiceTest {
     private static final UUID ID_8 = UUID.fromString("88888888-8888-8888-8888-888888888888");
     private static final UUID ID_9 = UUID.fromString("99999999-9999-9999-9999-999999999999");
     private static final UUID ID_10 = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static final UUID ID_11 = UUID.fromString("abababab-abab-abab-abab-abababababab");
     private static final UUID OWNER_42 = UUID.fromString("42424242-4242-4242-4242-424242424242");
     private static final UUID OWNER_99 = UUID.fromString("99999999-4242-4242-4242-424242424242");
     private static final UUID MANDOR_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -49,13 +53,15 @@ class ShipmentServiceTest {
 
     private ShipmentRepository shipmentRepository;
     private HarvestServiceClient harvestServiceClient;
+    private ShipmentEventPublisher shipmentEventPublisher;
     private ShipmentService shipmentService;
 
     @BeforeEach
     void setUp() {
         shipmentRepository = mock(ShipmentRepository.class);
         harvestServiceClient = mock(HarvestServiceClient.class);
-        shipmentService = new ShipmentService(shipmentRepository, harvestServiceClient);
+        shipmentEventPublisher = mock(ShipmentEventPublisher.class);
+        shipmentService = new ShipmentService(shipmentRepository, harvestServiceClient, shipmentEventPublisher);
     }
 
     @Test
@@ -136,6 +142,28 @@ class ShipmentServiceTest {
         assertSame(shipment, result);
         assertEquals(ShipmentStatus.MENGIRIM, result.getStatus());
         verify(shipmentRepository).save(shipment);
+        verify(shipmentEventPublisher, never()).publishShipmentCompleted(shipment);
+    }
+
+    @Test
+    void updateShipmentStatusPublishesEventWhenTransitioningToTiba() {
+        Shipment shipment = new Shipment();
+        shipment.setId(ID_11);
+        shipment.setSupirUserId(OWNER_42);
+        shipment.setMandorUserId(MANDOR_ID);
+        shipment.setTotalKg(320.0);
+        shipment.setStatus(ShipmentStatus.MENGIRIM);
+        shipment.getItems().add(shipmentItem(shipment, HARVEST_A, 200.0));
+        shipment.getItems().add(shipmentItem(shipment, HARVEST_B, 120.0));
+        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.save(shipment)).thenReturn(shipment);
+
+        Shipment result = shipmentService.updateShipmentStatus(ID_11, OWNER_42, ShipmentStatus.TIBA);
+
+        assertSame(shipment, result);
+        assertEquals(ShipmentStatus.TIBA, result.getStatus());
+        verify(shipmentRepository).save(shipment);
+        verify(shipmentEventPublisher).publishShipmentCompleted(shipment);
     }
 
     @Test
@@ -405,5 +433,13 @@ class ShipmentServiceTest {
         );
 
         assertEquals("Harvest not found: " + HARVEST_C, exception.getMessage());
+    }
+
+    private ShipmentItem shipmentItem(Shipment shipment, UUID harvestId, double weightKg) {
+        ShipmentItem item = new ShipmentItem();
+        item.setShipment(shipment);
+        item.setHarvestId(harvestId);
+        item.setWeightKg(weightKg);
+        return item;
     }
 }
