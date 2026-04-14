@@ -41,6 +41,11 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
         this.harvestServiceBaseUrl = trimTrailingSlash(harvestServiceBaseUrl);
     }
 
+    RestTemplateHarvestServiceClient(RestTemplate restTemplate, String harvestServiceBaseUrl) {
+        this.restTemplate = restTemplate;
+        this.harvestServiceBaseUrl = trimTrailingSlash(harvestServiceBaseUrl);
+    }
+
     @Override
     public Map<UUID, HarvestDetails> getHarvestsByIds(UUID foremanId, List<UUID> harvestIds) {
         if (harvestIds == null || harvestIds.isEmpty()) {
