@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -28,17 +29,20 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     private final RestTemplate restTemplate;
     private final String harvestServiceBaseUrl;
 
+    @Autowired
     public RestTemplateHarvestServiceClient(
             RestTemplateBuilder restTemplateBuilder,
             @Value("${harvest.service.base-url:http://localhost:8083}") String harvestServiceBaseUrl,
             @Value("${harvest.service.connect-timeout:2s}") Duration connectTimeout,
             @Value("${harvest.service.read-timeout:2s}") Duration readTimeout
     ) {
-        this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(connectTimeout)
-                .setReadTimeout(readTimeout)
-                .build();
-        this.harvestServiceBaseUrl = trimTrailingSlash(harvestServiceBaseUrl);
+        this(
+                restTemplateBuilder
+                        .setConnectTimeout(connectTimeout)
+                        .setReadTimeout(readTimeout)
+                        .build(),
+                harvestServiceBaseUrl
+        );
     }
 
     RestTemplateHarvestServiceClient(RestTemplate restTemplate, String harvestServiceBaseUrl) {
