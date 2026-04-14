@@ -56,6 +56,68 @@ paths:
                 forbiddenRole:
                   value: { error: "Forbidden" }
 
+    post:
+      tags: [Shipments]
+      summary: Create a new shipment (MANDOR only)
+      description: >
+        Mandor creates a shipment by selecting harvests whose status is exactly Approved
+        and assigning a supir. Total weight must not exceed 400 kg, and harvests cannot
+        be claimed by another shipment.
+      operationId: createShipment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShipmentRequest'
+      responses:
+        "201":
+          description: Shipment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentResponse'
+        "400":
+          description: Validation error, invalid harvest selection, or weight exceeds 400 kg
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weightExceeded:
+                  value:
+                    error: WEIGHT_EXCEEDED
+                    message: Total weight 450.0 kg exceeds maximum of 400 kg
+                harvestValidationFailed:
+                  value:
+                    error: HARVEST_VALIDATION_FAILED
+                    message: Harvest not found: 60060060-0600-6006-0060-060060060060
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role (not MANDOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: Harvest Service is unavailable or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                harvestServiceUnavailable:
+                  value:
+                    error: HARVEST_SERVICE_UNAVAILABLE
+                    message: Harvest service is unavailable
+
   /api/shipments/{id}:
     get:
       tags: [Shipments]
@@ -210,9 +272,10 @@ components:
         id:
           type: string
           format: uuid
-        harvestId:
+        mandorUserId:
           type: string
           format: uuid
+          description: Mandor who created the shipment.
         supirUserId:
           type: string
           format: uuid
@@ -226,6 +289,10 @@ components:
           exclusiveMinimum: true
         status:
           $ref: '#/components/schemas/ShipmentStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentItemResponse'
         createdAt:
           type: string
           format: date-time
@@ -234,13 +301,29 @@ components:
           format: date-time
       required:
         - id
-        - harvestId
+        - mandorUserId
         - supirUserId
         - destination
         - totalKg
         - status
+        - items
         - createdAt
         - updatedAt
+
+    ShipmentItemResponse:
+      type: object
+      properties:
+        harvestId:
+          type: string
+          format: uuid
+        weightKg:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+        - harvestId
+        - weightKg
 
     UpdateShipmentStatusRequest:
       type: object
@@ -249,6 +332,41 @@ components:
           $ref: '#/components/schemas/ShipmentStatus'
       required:
         - status
+
+    CreateShipmentRequest:
+      type: object
+      properties:
+        supirUserId:
+          type: string
+          format: uuid
+          description: Driver assigned to this shipment.
+        destination:
+          type: string
+          description: Delivery destination.
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/HarvestItemRequest'
+      required:
+        - supirUserId
+        - destination
+        - items
+
+    HarvestItemRequest:
+      type: object
+      properties:
+        harvestId:
+          type: string
+          format: uuid
+        weightKg:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+        - harvestId
+        - weightKg
 
     ErrorResponse:
       type: object

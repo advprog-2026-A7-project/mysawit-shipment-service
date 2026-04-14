@@ -29,6 +29,24 @@ public class ShipmentExceptionHandler {
                 .body(buildError("INVALID_STATUS_TRANSITION", ex.getMessage()));
     }
 
+    @ExceptionHandler(ShipmentWeightExceededException.class)
+    public ResponseEntity<Map<String, String>> handleWeightExceeded(ShipmentWeightExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildError("WEIGHT_EXCEEDED", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HarvestValidationException.class)
+    public ResponseEntity<Map<String, String>> handleHarvestValidation(HarvestValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildError("HARVEST_VALIDATION_FAILED", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HarvestServiceUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleHarvestServiceUnavailable(HarvestServiceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(buildError("HARVEST_SERVICE_UNAVAILABLE", ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

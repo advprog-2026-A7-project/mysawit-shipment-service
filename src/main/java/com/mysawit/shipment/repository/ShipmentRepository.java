@@ -9,4 +9,6 @@ import java.util.UUID;
 @Repository
 public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
     java.util.List<Shipment> findBySupirUserId(UUID supirUserId);
+
+    boolean existsByItemsHarvestId(UUID harvestId);
 }

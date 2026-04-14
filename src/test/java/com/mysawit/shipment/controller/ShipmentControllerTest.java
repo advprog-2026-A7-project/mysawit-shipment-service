@@ -8,21 +8,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.dto.ShipmentResponse;
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.security.ShipmentSecurityAttributes;
 import com.mysawit.shipment.service.ShipmentService;
 
 class ShipmentControllerTest {
 
     private static final UUID ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final UUID MANDOR_ID = UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111");
+    private static final UUID SUPIR_ID = UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222");
+    private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
     private ShipmentService shipmentService;
     private ShipmentController shipmentController;
@@ -75,10 +83,30 @@ class ShipmentControllerTest {
         assertEquals("mysawit-shipment-service", response.getBody().get("service"));
     }
 
+    @Test
+    void createShipmentReturnsCreatedResponse() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                SUPIR_ID, "Jakarta",
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0)));
+
+        Shipment saved = sampleShipment(ID_1);
+        when(shipmentService.createShipment(eq(MANDOR_ID), any(CreateShipmentRequest.class)))
+                .thenReturn(saved);
+
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, MANDOR_ID);
+
+        ResponseEntity<ShipmentResponse> response = shipmentController.createShipment(request, httpRequest);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(ID_1, response.getBody().id());
+        verify(shipmentService).createShipment(eq(MANDOR_ID), any(CreateShipmentRequest.class));
+    }
+
     private Shipment sampleShipment(UUID id) {
         Shipment shipment = new Shipment();
         shipment.setId(id);
-        shipment.setHarvestId(UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"));
+        shipment.setMandorUserId(UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"));
         shipment.setSupirUserId(UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222"));
         shipment.setDestination("Jakarta");
         shipment.setTotalKg(100.0);

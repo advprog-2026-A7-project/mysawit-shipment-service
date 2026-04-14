@@ -28,7 +28,6 @@ class ShipmentOwnershipListTest {
 
     private static final UUID SHIPMENT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID SUPIR_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
-    private static final UUID HARVEST_ID = UUID.fromString("10101010-1010-1010-1010-101010101010");
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,7 +40,7 @@ class ShipmentOwnershipListTest {
         Shipment owned = new Shipment();
         owned.setId(SHIPMENT_ID);
         owned.setSupirUserId(SUPIR_ID);
-        owned.setHarvestId(HARVEST_ID);
+        owned.setMandorUserId(UUID.fromString("55555555-5555-5555-5555-555555555555"));
         owned.setDestination("Pabrik A");
         owned.setTotalKg(120.0);
         owned.setStatus(ShipmentStatus.MEMUAT);
