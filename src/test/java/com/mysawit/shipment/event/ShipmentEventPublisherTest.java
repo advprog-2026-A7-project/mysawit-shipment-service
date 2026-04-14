@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -62,6 +63,23 @@ class ShipmentEventPublisherTest {
         assertEquals(320.0, event.totalKg());
         assertEquals(List.of(HARVEST_A, HARVEST_B), event.harvestIds());
         assertEquals(LocalDateTime.ofInstant(COMPLETED_AT, ZoneOffset.UTC), event.completedAt());
+    }
+
+    @Test
+    void defaultConstructorPublishesUsingSystemClock() {
+        ShipmentEventPublisher defaultClockPublisher = new ShipmentEventPublisher(rabbitTemplate);
+        Shipment shipment = completedShipment();
+
+        defaultClockPublisher.publishShipmentCompleted(shipment);
+
+        ArgumentCaptor<ShipmentCompletedEvent> eventCaptor = ArgumentCaptor.forClass(ShipmentCompletedEvent.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq("shipment.exchange"),
+                eq("shipment.completed"),
+                eventCaptor.capture()
+        );
+
+        assertNotNull(eventCaptor.getValue().completedAt());
     }
 
     private Shipment completedShipment() {
