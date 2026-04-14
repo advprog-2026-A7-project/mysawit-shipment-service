@@ -72,9 +72,7 @@ public class ShipmentService {
 
     @Transactional
     public Shipment createShipment(UUID mandorUserId, CreateShipmentRequest request) {
-        double totalKg = request.items().stream()
-                .mapToDouble(CreateShipmentRequest.HarvestItem::weightKg)
-                .sum();
+        double totalKg = calculateTotalKg(request);
 
         if (totalKg > MAX_WEIGHT_KG) {
             throw new ShipmentWeightExceededException(
@@ -90,14 +88,16 @@ public class ShipmentService {
         shipment.setTotalKg(totalKg);
 
         for (CreateShipmentRequest.HarvestItem item : request.items()) {
-            ShipmentItem shipmentItem = new ShipmentItem();
-            shipmentItem.setHarvestId(item.harvestId());
-            shipmentItem.setWeightKg(item.weightKg());
-            shipmentItem.setShipment(shipment);
-            shipment.getItems().add(shipmentItem);
+            shipment.getItems().add(toShipmentItem(shipment, item));
         }
 
         return shipmentRepository.save(shipment);
+    }
+
+    private double calculateTotalKg(CreateShipmentRequest request) {
+        return request.items().stream()
+                .mapToDouble(CreateShipmentRequest.HarvestItem::weightKg)
+                .sum();
     }
 
     private void validateHarvests(UUID mandorUserId, CreateShipmentRequest request) {
@@ -107,17 +107,28 @@ public class ShipmentService {
         Map<UUID, HarvestServiceClient.HarvestDetails> harvests = harvestServiceClient.getHarvestsByIds(mandorUserId, harvestIds);
 
         for (UUID harvestId : harvestIds) {
-            HarvestServiceClient.HarvestDetails harvest = harvests.get(harvestId);
-            if (harvest == null) {
-                throw new HarvestValidationException(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId);
-            }
-            if (!REQUIRED_HARVEST_STATUS.equals(harvest.status())) {
-                throw new HarvestValidationException(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId);
-            }
-            if (shipmentRepository.existsByItemsHarvestId(harvestId)) {
-                throw new HarvestValidationException(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId);
-            }
+            validateHarvest(harvestId, harvests.get(harvestId));
         }
+    }
+
+    private void validateHarvest(UUID harvestId, HarvestServiceClient.HarvestDetails harvest) {
+        if (harvest == null) {
+            throw new HarvestValidationException(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId);
+        }
+        if (!REQUIRED_HARVEST_STATUS.equals(harvest.status())) {
+            throw new HarvestValidationException(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId);
+        }
+        if (shipmentRepository.existsByItemsHarvestId(harvestId)) {
+            throw new HarvestValidationException(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId);
+        }
+    }
+
+    private ShipmentItem toShipmentItem(Shipment shipment, CreateShipmentRequest.HarvestItem item) {
+        ShipmentItem shipmentItem = new ShipmentItem();
+        shipmentItem.setHarvestId(item.harvestId());
+        shipmentItem.setWeightKg(item.weightKg());
+        shipmentItem.setShipment(shipment);
+        return shipmentItem;
     }
 
     private void ensureOwnedByRequester(Shipment shipment, UUID requesterSupirUserId) {

@@ -64,17 +64,21 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
                 return Map.of();
             }
 
-            Set<UUID> requestedIds = Set.copyOf(harvestIds);
-            Map<UUID, HarvestDetails> result = new LinkedHashMap<>();
-            for (HarvestPayload harvest : harvests) {
-                if (harvest.id() != null && requestedIds.contains(harvest.id())) {
-                    result.put(harvest.id(), new HarvestDetails(harvest.id(), normalizeStatus(harvest.status())));
-                }
-            }
-            return result;
+            return toRequestedHarvests(harvestIds, harvests);
         } catch (RestClientException ex) {
             throw new HarvestServiceUnavailableException("Harvest service is unavailable", ex);
         }
+    }
+
+    private Map<UUID, HarvestDetails> toRequestedHarvests(List<UUID> harvestIds, List<HarvestPayload> harvests) {
+        Set<UUID> requestedIds = Set.copyOf(harvestIds);
+        Map<UUID, HarvestDetails> result = new LinkedHashMap<>();
+        for (HarvestPayload harvest : harvests) {
+            if (harvest.id() != null && requestedIds.contains(harvest.id())) {
+                result.put(harvest.id(), new HarvestDetails(harvest.id(), normalizeStatus(harvest.status())));
+            }
+        }
+        return result;
     }
 
     private String normalizeStatus(String rawStatus) {
