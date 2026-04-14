@@ -7,11 +7,13 @@ import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +42,7 @@ class ShipmentErrorHandlingTest {
     private static final UUID LEGACY_ERROR_ID = UUID.fromString("50050050-0500-5005-0050-050050050050");
     private static final UUID WEIGHT_ID = UUID.fromString("60060060-0600-6006-0060-060060060060");
     private static final UUID SUPIR_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
+    private static final UUID MANDOR_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     @Autowired
     private MockMvc mockMvc;
@@ -113,9 +116,51 @@ class ShipmentErrorHandlingTest {
                 .andExpect(jsonPath(JSON_MESSAGE).value("Harvest service is unavailable"));
     }
 
+    @Test
+    void createShipmentReturnsHarvestValidationErrorContract() throws Exception {
+        when(shipmentService.createShipment(org.mockito.ArgumentMatchers.eq(MANDOR_ID), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new HarvestValidationException("Harvest not found: " + WEIGHT_ID));
+
+        performCreateShipment()
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest not found: " + WEIGHT_ID));
+    }
+
+    @Test
+    void createShipmentReturnsHarvestServiceUnavailableErrorContract() throws Exception {
+        when(shipmentService.createShipment(org.mockito.ArgumentMatchers.eq(MANDOR_ID), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+
+        performCreateShipment()
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest service is unavailable"));
+    }
+
     private ResultActions performGetShipment(UUID shipmentId) throws Exception {
         String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
         return mockMvc.perform(get(SHIPMENTS_PATH + shipmentId)
                 .header(AUTH_HEADER, BEARER_PREFIX + supirToken));
+    }
+
+    private ResultActions performCreateShipment() throws Exception {
+        String mandorToken = JwtFixture.mandorToken(MANDOR_ID.toString());
+        String requestBody = """
+                {
+                  "supirUserId": "42424242-4242-4242-4242-424242424242",
+                  "destination": "Jakarta",
+                  "items": [
+                    {
+                      "harvestId": "60060060-0600-6006-0060-060060060060",
+                      "weightKg": 100.0
+                    }
+                  ]
+                }
+                """;
+        return mockMvc.perform(post("/api/shipments")
+                .header(AUTH_HEADER, BEARER_PREFIX + mandorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody));
     }
 }
