@@ -38,8 +38,8 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     ) {
         this(
                 restTemplateBuilder
-                        .setConnectTimeout(connectTimeout)
-                        .setReadTimeout(readTimeout)
+                        .connectTimeout(connectTimeout)
+                        .readTimeout(readTimeout)
                         .build(),
                 harvestServiceBaseUrl
         );
