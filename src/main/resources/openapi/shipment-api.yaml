@@ -60,8 +60,9 @@ paths:
       tags: [Shipments]
       summary: Create a new shipment (MANDOR only)
       description: >
-        Mandor creates a shipment by selecting APPROVED harvests and assigning a supir.
-        Total weight must not exceed 400 kg.
+        Mandor creates a shipment by selecting harvests whose status is exactly Approved
+        and assigning a supir. Total weight must not exceed 400 kg, and harvests cannot
+        be claimed by another shipment.
       operationId: createShipment
       security:
         - bearerAuth: []
@@ -79,7 +80,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ShipmentResponse'
         "400":
-          description: Validation error or weight exceeds 400 kg
+          description: Validation error, invalid harvest selection, or weight exceeds 400 kg
           content:
             application/json:
               schema:
@@ -89,6 +90,10 @@ paths:
                   value:
                     error: WEIGHT_EXCEEDED
                     message: Total weight 450.0 kg exceeds maximum of 400 kg
+                harvestValidationFailed:
+                  value:
+                    error: HARVEST_VALIDATION_FAILED
+                    message: Harvest not found: 60060060-0600-6006-0060-060060060060
         "401":
           description: Missing or invalid JWT
           content:
@@ -101,6 +106,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: Harvest Service is unavailable or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                harvestServiceUnavailable:
+                  value:
+                    error: HARVEST_SERVICE_UNAVAILABLE
+                    message: Harvest service is unavailable
 
   /api/shipments/{id}:
     get:
