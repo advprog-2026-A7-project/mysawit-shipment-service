@@ -3,6 +3,8 @@ package com.mysawit.shipment.controller;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -36,6 +38,19 @@ class ShipmentErrorHandlingTest {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String JSON_ERROR = "$.error";
     private static final String JSON_MESSAGE = "$.message";
+    private static final String CREATE_SHIPMENT_PATH = "/api/shipments";
+    private static final String CREATE_SHIPMENT_BODY = """
+            {
+              "supirUserId": "42424242-4242-4242-4242-424242424242",
+              "destination": "Jakarta",
+              "items": [
+                {
+                  "harvestId": "60060060-0600-6006-0060-060060060060",
+                  "weightKg": 100.0
+                }
+              ]
+            }
+            """;
 
     private static final UUID NOT_FOUND_ID = UUID.fromString("40404040-4040-4040-4040-404040404040");
     private static final UUID FORBIDDEN_ID = UUID.fromString("40340340-3403-4034-0340-340340340340");
@@ -118,24 +133,22 @@ class ShipmentErrorHandlingTest {
 
     @Test
     void createShipmentReturnsHarvestValidationErrorContract() throws Exception {
-        when(shipmentService.createShipment(org.mockito.ArgumentMatchers.eq(MANDOR_ID), org.mockito.ArgumentMatchers.any()))
+        when(shipmentService.createShipment(eq(MANDOR_ID), any()))
                 .thenThrow(new HarvestValidationException("Harvest not found: " + WEIGHT_ID));
 
-        performCreateShipment()
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
-                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest not found: " + WEIGHT_ID));
+        assertCreateShipmentError("HARVEST_VALIDATION_FAILED", "Harvest not found: " + WEIGHT_ID, status().isBadRequest());
     }
 
     @Test
     void createShipmentReturnsHarvestServiceUnavailableErrorContract() throws Exception {
-        when(shipmentService.createShipment(org.mockito.ArgumentMatchers.eq(MANDOR_ID), org.mockito.ArgumentMatchers.any()))
+        when(shipmentService.createShipment(eq(MANDOR_ID), any()))
                 .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
 
-        performCreateShipment()
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_SERVICE_UNAVAILABLE"))
-                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest service is unavailable"));
+        assertCreateShipmentError(
+                "HARVEST_SERVICE_UNAVAILABLE",
+                "Harvest service is unavailable",
+                status().isServiceUnavailable()
+        );
     }
 
     private ResultActions performGetShipment(UUID shipmentId) throws Exception {
@@ -146,21 +159,20 @@ class ShipmentErrorHandlingTest {
 
     private ResultActions performCreateShipment() throws Exception {
         String mandorToken = JwtFixture.mandorToken(MANDOR_ID.toString());
-        String requestBody = """
-                {
-                  "supirUserId": "42424242-4242-4242-4242-424242424242",
-                  "destination": "Jakarta",
-                  "items": [
-                    {
-                      "harvestId": "60060060-0600-6006-0060-060060060060",
-                      "weightKg": 100.0
-                    }
-                  ]
-                }
-                """;
-        return mockMvc.perform(post("/api/shipments")
+        return mockMvc.perform(post(CREATE_SHIPMENT_PATH)
                 .header(AUTH_HEADER, BEARER_PREFIX + mandorToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(requestBody));
+                .content(CREATE_SHIPMENT_BODY));
+    }
+
+    private void assertCreateShipmentError(
+            String errorCode,
+            String message,
+            org.springframework.test.web.servlet.ResultMatcher statusMatcher
+    ) throws Exception {
+        performCreateShipment()
+                .andExpect(statusMatcher)
+                .andExpect(jsonPath(JSON_ERROR).value(errorCode))
+                .andExpect(jsonPath(JSON_MESSAGE).value(message));
     }
 }

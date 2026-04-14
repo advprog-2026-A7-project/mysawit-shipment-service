@@ -15,8 +15,12 @@ class ShipmentOpenApiTest {
     void createShipmentDocumentsHarvestValidationAndServiceUnavailableResponses() throws IOException {
         String spec = Files.readString(SPEC_PATH);
 
-        assertTrue(spec.contains("HARVEST_VALIDATION_FAILED"));
-        assertTrue(spec.contains("HARVEST_SERVICE_UNAVAILABLE"));
-        assertTrue(spec.contains("\"503\":"));
+        assertContains(spec, "HARVEST_VALIDATION_FAILED");
+        assertContains(spec, "HARVEST_SERVICE_UNAVAILABLE");
+        assertContains(spec, "\"503\":");
+    }
+
+    private void assertContains(String spec, String expectedValue) {
+        assertTrue(spec.contains(expectedValue));
     }
 }
