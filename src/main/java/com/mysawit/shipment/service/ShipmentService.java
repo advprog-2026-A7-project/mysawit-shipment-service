@@ -12,6 +12,7 @@ import com.mysawit.shipment.client.HarvestServiceClient;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
+import com.mysawit.shipment.event.ShipmentEventPublisher;
 import com.mysawit.shipment.exception.HarvestValidationException;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
@@ -34,11 +35,17 @@ public class ShipmentService {
     private static final double MAX_WEIGHT_KG = 400.0;
     
     private final HarvestServiceClient harvestServiceClient;
+    private final ShipmentEventPublisher shipmentEventPublisher;
     private final ShipmentRepository shipmentRepository;
     
-    public ShipmentService(ShipmentRepository shipmentRepository, HarvestServiceClient harvestServiceClient) {
+    public ShipmentService(
+            ShipmentRepository shipmentRepository,
+            HarvestServiceClient harvestServiceClient,
+            ShipmentEventPublisher shipmentEventPublisher
+    ) {
         this.shipmentRepository = shipmentRepository;
         this.harvestServiceClient = harvestServiceClient;
+        this.shipmentEventPublisher = shipmentEventPublisher;
     }
     
     public List<Shipment> getAllShipments() {
@@ -67,7 +74,11 @@ public class ShipmentService {
         ensureValidStatusTransition(shipment, targetStatus);
 
         shipment.setStatus(targetStatus);
-        return shipmentRepository.save(shipment);
+        Shipment savedShipment = shipmentRepository.save(shipment);
+        if (ShipmentStatus.TIBA.equals(targetStatus)) {
+            shipmentEventPublisher.publishShipmentCompleted(savedShipment);
+        }
+        return savedShipment;
     }
 
     @Transactional

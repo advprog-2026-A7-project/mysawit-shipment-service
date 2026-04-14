@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -49,8 +50,8 @@ class ShipmentEventPublisherTest {
 
         ArgumentCaptor<ShipmentCompletedEvent> eventCaptor = ArgumentCaptor.forClass(ShipmentCompletedEvent.class);
         verify(rabbitTemplate).convertAndSend(
-                "shipment.exchange",
-                "shipment.completed",
+                eq("shipment.exchange"),
+                eq("shipment.completed"),
                 eventCaptor.capture()
         );
 
