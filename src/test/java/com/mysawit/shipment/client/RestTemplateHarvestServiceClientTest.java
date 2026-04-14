@@ -26,6 +26,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class RestTemplateHarvestServiceClientTest {
 
+    private static final String HARVEST_SERVICE_BASE_URL = "http://localhost:8083";
+    private static final String HARVESTS_URL = HARVEST_SERVICE_BASE_URL + "/harvests";
+    private static final String FOREMAN_HEADER = "X-Foreman-Id";
     private static final UUID FOREMAN_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final UUID HARVEST_B = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
@@ -39,14 +42,14 @@ class RestTemplateHarvestServiceClientTest {
     void setUp() {
         restTemplate = new RestTemplate();
         server = MockRestServiceServer.bindTo(restTemplate).build();
-        client = new RestTemplateHarvestServiceClient(restTemplate, "http://localhost:8083/");
+        client = new RestTemplateHarvestServiceClient(restTemplate, HARVEST_SERVICE_BASE_URL + "/");
     }
 
     @Test
     void getHarvestsByIdsReturnsOnlyRequestedHarvestsAndNormalizesStatuses() {
-        server.expect(requestTo("http://localhost:8083/harvests"))
+        server.expect(requestTo(HARVESTS_URL))
                 .andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Foreman-Id", FOREMAN_ID.toString()))
+                .andExpect(header(FOREMAN_HEADER, FOREMAN_ID.toString()))
                 .andRespond(withSuccess("""
                         [
                           {"id":"cccccccc-cccc-cccc-cccc-cccccccccccc","status":"APPROVED"},
@@ -84,22 +87,22 @@ class RestTemplateHarvestServiceClientTest {
     void builderConstructorTrimsTrailingSlashFromBaseUrl() {
         RestTemplateHarvestServiceClient builderClient = new RestTemplateHarvestServiceClient(
                 new RestTemplateBuilder(),
-                "http://localhost:8083/",
+                HARVEST_SERVICE_BASE_URL + "/",
                 java.time.Duration.ofSeconds(2),
                 java.time.Duration.ofSeconds(2)
         );
 
         assertEquals(
-                "http://localhost:8083",
+                HARVEST_SERVICE_BASE_URL,
                 ReflectionTestUtils.getField(builderClient, "harvestServiceBaseUrl")
         );
     }
 
     @Test
     void getHarvestsByIdsReturnsEmptyMapWhenRemoteResponseBodyIsEmpty() {
-        server.expect(requestTo("http://localhost:8083/harvests"))
+        server.expect(requestTo(HARVESTS_URL))
                 .andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Foreman-Id", FOREMAN_ID.toString()))
+                .andExpect(header(FOREMAN_HEADER, FOREMAN_ID.toString()))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         Map<UUID, HarvestServiceClient.HarvestDetails> harvests = client.getHarvestsByIds(
@@ -116,13 +119,13 @@ class RestTemplateHarvestServiceClientTest {
     void getHarvestsByIdsReturnsEmptyMapWhenRemoteResponseBodyIsNull() {
         RestTemplate mockedRestTemplate = org.mockito.Mockito.mock(RestTemplate.class);
         org.mockito.Mockito.when(mockedRestTemplate.exchange(
-                org.mockito.Mockito.eq("http://localhost:8083/harvests"),
+                org.mockito.Mockito.eq(HARVESTS_URL),
                 org.mockito.Mockito.eq(HttpMethod.GET),
                 org.mockito.Mockito.any(),
                 org.mockito.Mockito.<org.springframework.core.ParameterizedTypeReference<List<?>>>any()
         )).thenReturn((ResponseEntity) ResponseEntity.ok().build());
         RestTemplateHarvestServiceClient mockedClient =
-                new RestTemplateHarvestServiceClient(mockedRestTemplate, "http://localhost:8083");
+                new RestTemplateHarvestServiceClient(mockedRestTemplate, HARVEST_SERVICE_BASE_URL);
 
         Map<UUID, HarvestServiceClient.HarvestDetails> harvests =
                 mockedClient.getHarvestsByIds(FOREMAN_ID, List.of(HARVEST_A));
@@ -132,9 +135,9 @@ class RestTemplateHarvestServiceClientTest {
 
     @Test
     void getHarvestsByIdsKeepsUnknownStatusAndNullStatusWhileIgnoringUnrequestedPayloads() {
-        server.expect(requestTo("http://localhost:8083/harvests"))
+        server.expect(requestTo(HARVESTS_URL))
                 .andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Foreman-Id", FOREMAN_ID.toString()))
+                .andExpect(header(FOREMAN_HEADER, FOREMAN_ID.toString()))
                 .andRespond(withSuccess("""
                         [
                           {"id":"cccccccc-cccc-cccc-cccc-cccccccccccc","status":"CUSTOM"},
@@ -151,15 +154,15 @@ class RestTemplateHarvestServiceClientTest {
 
         assertEquals("CUSTOM", harvests.get(HARVEST_A).status());
         assertEquals(null, harvests.get(HARVEST_B).status());
-        assertEquals(false, harvests.containsKey(HARVEST_C));
+        assertTrue(!harvests.containsKey(HARVEST_C));
         server.verify();
     }
 
     @Test
     void getHarvestsByIdsNormalizesRejectedStatusForRequestedHarvests() {
-        server.expect(requestTo("http://localhost:8083/harvests"))
+        server.expect(requestTo(HARVESTS_URL))
                 .andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Foreman-Id", FOREMAN_ID.toString()))
+                .andExpect(header(FOREMAN_HEADER, FOREMAN_ID.toString()))
                 .andRespond(withSuccess("""
                         [
                           {"id":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","status":"REJECTED"}

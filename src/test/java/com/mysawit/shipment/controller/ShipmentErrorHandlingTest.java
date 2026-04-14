@@ -36,6 +36,8 @@ class ShipmentErrorHandlingTest {
     private static final String SHIPMENTS_PATH = "/api/shipments/";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
+    private static final String HARVEST_SERVICE_UNAVAILABLE_MESSAGE = "Harvest service is unavailable";
     private static final String JSON_ERROR = "$.error";
     private static final String JSON_MESSAGE = "$.message";
     private static final String CREATE_SHIPMENT_PATH = "/api/shipments";
@@ -112,41 +114,41 @@ class ShipmentErrorHandlingTest {
     @Test
     void getShipmentByIdReturnsHarvestValidationErrorContract() throws Exception {
         when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
-                .thenThrow(new HarvestValidationException("Harvest not found: " + WEIGHT_ID));
+                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
 
         performGetShipment(WEIGHT_ID)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
-                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest not found: " + WEIGHT_ID));
+                .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
     }
 
     @Test
     void getShipmentByIdReturnsHarvestServiceUnavailableErrorContract() throws Exception {
         when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
-                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+                .thenThrow(new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
 
         performGetShipment(WEIGHT_ID)
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath(JSON_ERROR).value("HARVEST_SERVICE_UNAVAILABLE"))
-                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest service is unavailable"));
+                .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
     }
 
     @Test
     void createShipmentReturnsHarvestValidationErrorContract() throws Exception {
         when(shipmentService.createShipment(eq(MANDOR_ID), any()))
-                .thenThrow(new HarvestValidationException("Harvest not found: " + WEIGHT_ID));
+                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
 
-        assertCreateShipmentError("HARVEST_VALIDATION_FAILED", "Harvest not found: " + WEIGHT_ID, status().isBadRequest());
+        assertCreateShipmentError("HARVEST_VALIDATION_FAILED", HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, status().isBadRequest());
     }
 
     @Test
     void createShipmentReturnsHarvestServiceUnavailableErrorContract() throws Exception {
         when(shipmentService.createShipment(eq(MANDOR_ID), any()))
-                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+                .thenThrow(new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
 
         assertCreateShipmentError(
                 "HARVEST_SERVICE_UNAVAILABLE",
-                "Harvest service is unavailable",
+                HARVEST_SERVICE_UNAVAILABLE_MESSAGE,
                 status().isServiceUnavailable()
         );
     }

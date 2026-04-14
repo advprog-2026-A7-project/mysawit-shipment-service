@@ -31,6 +31,7 @@ import com.mysawit.shipment.repository.ShipmentRepository;
 
 class ShipmentServiceTest {
 
+    private static final String APPROVED_STATUS = "Approved";
     private static final UUID ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ID_3 = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID ID_4 = UUID.fromString("44444444-4444-4444-4444-444444444444");
@@ -194,8 +195,8 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
-                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
@@ -236,8 +237,8 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
-                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
@@ -257,7 +258,7 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -282,8 +283,8 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
-                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
@@ -308,7 +309,7 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS)
                 ));
 
         HarvestValidationException exception = assertThrows(
@@ -337,7 +338,7 @@ class ShipmentServiceTest {
                 () -> shipmentService.createShipment(MANDOR_ID, request)
         );
 
-        assertEquals("Harvest status must be Approved: " + HARVEST_A, exception.getMessage());
+        assertEquals("Harvest status must be " + APPROVED_STATUS + ": " + HARVEST_A, exception.getMessage());
     }
 
     @Test
@@ -350,7 +351,7 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(true);
 
@@ -394,7 +395,7 @@ class ShipmentServiceTest {
 
         when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_C)))
                 .thenReturn(Map.of(
-                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS)
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
 
