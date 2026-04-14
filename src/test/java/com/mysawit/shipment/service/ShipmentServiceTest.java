@@ -1,6 +1,7 @@
 package com.mysawit.shipment.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,13 +12,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mysawit.shipment.client.HarvestServiceClient;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
+import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
+import com.mysawit.shipment.exception.HarvestValidationException;
 import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.exception.ShipmentWeightExceededException;
@@ -38,15 +43,18 @@ class ShipmentServiceTest {
     private static final UUID MANDOR_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final UUID HARVEST_B = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    private static final UUID HARVEST_C = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
     private static final String DESTINATION = "Jakarta";
 
     private ShipmentRepository shipmentRepository;
+    private HarvestServiceClient harvestServiceClient;
     private ShipmentService shipmentService;
 
     @BeforeEach
     void setUp() {
         shipmentRepository = mock(ShipmentRepository.class);
-        shipmentService = new ShipmentService(shipmentRepository);
+        harvestServiceClient = mock(HarvestServiceClient.class);
+        shipmentService = new ShipmentService(shipmentRepository, harvestServiceClient);
     }
 
     @Test
@@ -184,6 +192,13 @@ class ShipmentServiceTest {
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 150.0),
                         new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
 
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -219,6 +234,13 @@ class ShipmentServiceTest {
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 200.0),
                         new CreateShipmentRequest.HarvestItem(HARVEST_B, 200.0)));
 
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -233,6 +255,11 @@ class ShipmentServiceTest {
                 OWNER_42, DESTINATION,
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0)));
 
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -240,5 +267,142 @@ class ShipmentServiceTest {
         assertSame(result, result.getItems().get(0).getShipment());
         assertEquals(HARVEST_A, result.getItems().get(0).getHarvestId());
         assertEquals(100.0, result.getItems().get(0).getWeightKg());
+    }
+
+    @Test
+    void createShipmentSucceedsWhenAllHarvestsAreApprovedAndUnclaimed() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(
+                        new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_B, 120.0)
+                )
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved"),
+                        HARVEST_B, new HarvestServiceClient.HarvestDetails(HARVEST_B, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Shipment result = shipmentService.createShipment(MANDOR_ID, request);
+
+        assertEquals(220.0, result.getTotalKg());
+        verify(harvestServiceClient).getHarvestsByIds(eq(MANDOR_ID), eq(List.of(HARVEST_A, HARVEST_B)));
+    }
+
+    @Test
+    void createShipmentFailsWhenOneOrMoreHarvestIdsAreInvalidOrNotFound() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(
+                        new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_B, 120.0)
+                )
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_B)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                ));
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest not found: " + HARVEST_B, exception.getMessage());
+    }
+
+    @Test
+    void createShipmentFailsWhenHarvestStatusIsNotApproved() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0))
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Pending")
+                ));
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest status must be Approved: " + HARVEST_A, exception.getMessage());
+    }
+
+    @Test
+    void createShipmentFailsWhenHarvestWasAlreadyClaimedByAnotherShipment() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0))
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(true);
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest already claimed: " + HARVEST_A, exception.getMessage());
+    }
+
+    @Test
+    void createShipmentFailsWhenHarvestServiceIsUnavailable() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0))
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A)))
+                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+
+        HarvestServiceUnavailableException exception = assertThrows(
+                HarvestServiceUnavailableException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest service is unavailable", exception.getMessage());
+    }
+
+    @Test
+    void createShipmentFailsForMixedValidAndInvalidHarvestIdsInTheSameRequest() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(
+                        new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0),
+                        new CreateShipmentRequest.HarvestItem(HARVEST_C, 90.0)
+                )
+        );
+
+        when(harvestServiceClient.getHarvestsByIds(MANDOR_ID, List.of(HARVEST_A, HARVEST_C)))
+                .thenReturn(Map.of(
+                        HARVEST_A, new HarvestServiceClient.HarvestDetails(HARVEST_A, "Approved")
+                ));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest not found: " + HARVEST_C, exception.getMessage());
     }
 }

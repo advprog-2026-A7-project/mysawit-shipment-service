@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
+import com.mysawit.shipment.exception.HarvestValidationException;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
 import com.mysawit.shipment.exception.ShipmentWeightExceededException;
@@ -87,6 +89,28 @@ class ShipmentErrorHandlingTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath(JSON_ERROR).value("WEIGHT_EXCEEDED"))
                 .andExpect(jsonPath(JSON_MESSAGE).value("Total weight 450.0 kg exceeds maximum of 400 kg"));
+    }
+
+    @Test
+    void getShipmentByIdReturnsHarvestValidationErrorContract() throws Exception {
+        when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
+                .thenThrow(new HarvestValidationException("Harvest not found: " + WEIGHT_ID));
+
+        performGetShipment(WEIGHT_ID)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest not found: " + WEIGHT_ID));
+    }
+
+    @Test
+    void getShipmentByIdReturnsHarvestServiceUnavailableErrorContract() throws Exception {
+        when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
+                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+
+        performGetShipment(WEIGHT_ID)
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath(JSON_MESSAGE).value("Harvest service is unavailable"));
     }
 
     private ResultActions performGetShipment(UUID shipmentId) throws Exception {
