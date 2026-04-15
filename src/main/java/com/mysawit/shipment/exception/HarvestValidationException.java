@@ -16,6 +16,18 @@ public class HarvestValidationException extends RuntimeException {
         this.status = status;
     }
 
+    public static HarvestValidationException notFound(String message) {
+        return new HarvestValidationException(message, HttpStatus.NOT_FOUND);
+    }
+
+    public static HarvestValidationException badRequest(String message) {
+        return new HarvestValidationException(message, HttpStatus.BAD_REQUEST);
+    }
+
+    public static HarvestValidationException conflict(String message) {
+        return new HarvestValidationException(message, HttpStatus.CONFLICT);
+    }
+
     public HttpStatus getStatus() {
         return status;
     }

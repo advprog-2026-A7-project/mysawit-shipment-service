@@ -6,7 +6,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -115,28 +114,32 @@ public class ShipmentService {
     }
 
     private void validateHarvests(UUID mandorUserId, CreateShipmentRequest request) {
-        Set<UUID> seenHarvestIds = new HashSet<>();
-        for (CreateShipmentRequest.HarvestItem item : request.items()) {
-            UUID harvestId = item.harvestId();
-            if (!seenHarvestIds.add(harvestId)) {
-                throw new HarvestValidationException(ERR_HARVEST_DUPLICATE_PREFIX + harvestId, HttpStatus.CONFLICT);
-            }
-        }
+        ensureUniqueHarvestIds(request.items());
         for (CreateShipmentRequest.HarvestItem item : request.items()) {
             UUID harvestId = item.harvestId();
             validateHarvest(harvestId, harvestServiceClient.getHarvestById(mandorUserId, harvestId));
         }
     }
 
+    private void ensureUniqueHarvestIds(List<CreateShipmentRequest.HarvestItem> items) {
+        Set<UUID> seenHarvestIds = new HashSet<>();
+        for (CreateShipmentRequest.HarvestItem item : items) {
+            UUID harvestId = item.harvestId();
+            if (!seenHarvestIds.add(harvestId)) {
+                throw HarvestValidationException.conflict(ERR_HARVEST_DUPLICATE_PREFIX + harvestId);
+            }
+        }
+    }
+
     private void validateHarvest(UUID harvestId, HarvestServiceClient.HarvestDetails harvest) {
         if (harvest == null) {
-            throw new HarvestValidationException(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId, HttpStatus.NOT_FOUND);
+            throw HarvestValidationException.notFound(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId);
         }
         if (!REQUIRED_HARVEST_STATUS.equals(harvest.status())) {
-            throw new HarvestValidationException(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId, HttpStatus.BAD_REQUEST);
+            throw HarvestValidationException.badRequest(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId);
         }
         if (shipmentRepository.existsByItemsHarvestId(harvestId)) {
-            throw new HarvestValidationException(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId, HttpStatus.CONFLICT);
+            throw HarvestValidationException.conflict(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId);
         }
     }
 
