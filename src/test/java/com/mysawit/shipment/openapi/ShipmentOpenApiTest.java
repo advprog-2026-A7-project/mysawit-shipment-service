@@ -17,6 +17,9 @@ class ShipmentOpenApiTest {
 
         assertContains(spec, "HARVEST_VALIDATION_FAILED");
         assertContains(spec, "HARVEST_SERVICE_UNAVAILABLE");
+        assertContains(spec, "\"404\":");
+        assertContains(spec, "\"409\":");
+        assertContains(spec, "Harvest already claimed:");
         assertContains(spec, "\"503\":");
     }
 
