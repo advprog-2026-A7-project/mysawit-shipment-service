@@ -1,12 +1,10 @@
 package com.mysawit.shipment.client;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public interface HarvestServiceClient {
 
-    Map<UUID, HarvestDetails> getHarvestsByIds(UUID foremanId, List<UUID> harvestIds);
+    HarvestDetails getHarvestById(UUID foremanId, UUID harvestId);
 
     record HarvestDetails(UUID id, String status) {
     }

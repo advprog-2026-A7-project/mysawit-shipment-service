@@ -1,10 +1,12 @@
 package com.mysawit.shipment.service;
 
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class ShipmentService {
 
     private static final String ERR_FORBIDDEN = "Forbidden";
     private static final String ERR_HARVEST_ALREADY_CLAIMED_PREFIX = "Harvest already claimed: ";
+    private static final String ERR_HARVEST_DUPLICATE_PREFIX = "Duplicate harvest id in request: ";
     private static final String ERR_HARVEST_NOT_APPROVED_PREFIX = "Harvest status must be Approved: ";
     private static final String ERR_HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
     private static final String ERR_INVALID_STATUS_TRANSITION = "Invalid status transition";
@@ -112,25 +115,28 @@ public class ShipmentService {
     }
 
     private void validateHarvests(UUID mandorUserId, CreateShipmentRequest request) {
-        List<UUID> harvestIds = request.items().stream()
-                .map(CreateShipmentRequest.HarvestItem::harvestId)
-                .toList();
-        Map<UUID, HarvestServiceClient.HarvestDetails> harvests = harvestServiceClient.getHarvestsByIds(mandorUserId, harvestIds);
-
-        for (UUID harvestId : harvestIds) {
-            validateHarvest(harvestId, harvests.get(harvestId));
+        Set<UUID> seenHarvestIds = new HashSet<>();
+        for (CreateShipmentRequest.HarvestItem item : request.items()) {
+            UUID harvestId = item.harvestId();
+            if (!seenHarvestIds.add(harvestId)) {
+                throw new HarvestValidationException(ERR_HARVEST_DUPLICATE_PREFIX + harvestId, HttpStatus.CONFLICT);
+            }
+        }
+        for (CreateShipmentRequest.HarvestItem item : request.items()) {
+            UUID harvestId = item.harvestId();
+            validateHarvest(harvestId, harvestServiceClient.getHarvestById(mandorUserId, harvestId));
         }
     }
 
     private void validateHarvest(UUID harvestId, HarvestServiceClient.HarvestDetails harvest) {
         if (harvest == null) {
-            throw new HarvestValidationException(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId);
+            throw new HarvestValidationException(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId, HttpStatus.NOT_FOUND);
         }
         if (!REQUIRED_HARVEST_STATUS.equals(harvest.status())) {
-            throw new HarvestValidationException(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId);
+            throw new HarvestValidationException(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId, HttpStatus.BAD_REQUEST);
         }
         if (shipmentRepository.existsByItemsHarvestId(harvestId)) {
-            throw new HarvestValidationException(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId);
+            throw new HarvestValidationException(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId, HttpStatus.CONFLICT);
         }
     }
 

@@ -80,7 +80,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ShipmentResponse'
         "400":
-          description: Validation error, invalid harvest selection, or weight exceeds 400 kg
+          description: Validation error, invalid harvest status, or weight exceeds 400 kg
           content:
             application/json:
               schema:
@@ -91,6 +91,17 @@ paths:
                     error: WEIGHT_EXCEEDED
                     message: Total weight 450.0 kg exceeds maximum of 400 kg
                 harvestValidationFailed:
+                  value:
+                    error: HARVEST_VALIDATION_FAILED
+                    message: Harvest status must be Approved: 60060060-0600-6006-0060-060060060060
+        "404":
+          description: Requested harvest was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                harvestNotFound:
                   value:
                     error: HARVEST_VALIDATION_FAILED
                     message: Harvest not found: 60060060-0600-6006-0060-060060060060
@@ -106,6 +117,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Harvest has already been claimed or is duplicated in the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                harvestAlreadyClaimed:
+                  value:
+                    error: HARVEST_VALIDATION_FAILED
+                    message: Harvest already claimed: 60060060-0600-6006-0060-060060060060
+                duplicateHarvestId:
+                  value:
+                    error: HARVEST_VALIDATION_FAILED
+                    message: Duplicate harvest id in request: 60060060-0600-6006-0060-060060060060
         "503":
           description: Harvest Service is unavailable or timed out
           content:
