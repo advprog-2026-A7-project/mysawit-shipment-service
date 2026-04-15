@@ -36,6 +36,7 @@ import com.mysawit.shipment.repository.ShipmentRepository;
 class ShipmentServiceTest {
 
     private static final String APPROVED_STATUS = "Approved";
+    private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
     private static final UUID ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ID_3 = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID ID_4 = UUID.fromString("44444444-4444-4444-4444-444444444444");
@@ -336,7 +337,7 @@ class ShipmentServiceTest {
                 .thenReturn(new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS));
         when(harvestServiceClient.getHarvestById(MANDOR_ID, HARVEST_B))
                 .thenThrow(new HarvestValidationException(
-                        "Harvest not found: " + HARVEST_B,
+                        HARVEST_NOT_FOUND_PREFIX + HARVEST_B,
                         HttpStatus.NOT_FOUND
                 ));
 
@@ -345,7 +346,26 @@ class ShipmentServiceTest {
                 () -> shipmentService.createShipment(MANDOR_ID, request)
         );
 
-        assertEquals("Harvest not found: " + HARVEST_B, exception.getMessage());
+        assertEquals(HARVEST_NOT_FOUND_PREFIX + HARVEST_B, exception.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    }
+
+    @Test
+    void createShipmentFailsWhenHarvestClientReturnsNullHarvest() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0))
+        );
+
+        when(harvestServiceClient.getHarvestById(MANDOR_ID, HARVEST_A)).thenReturn(null);
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals(HARVEST_NOT_FOUND_PREFIX + HARVEST_A, exception.getMessage());
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
     }
 
@@ -424,7 +444,7 @@ class ShipmentServiceTest {
                 .thenReturn(new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS));
         when(harvestServiceClient.getHarvestById(MANDOR_ID, HARVEST_C))
                 .thenThrow(new HarvestValidationException(
-                        "Harvest not found: " + HARVEST_C,
+                        HARVEST_NOT_FOUND_PREFIX + HARVEST_C,
                         HttpStatus.NOT_FOUND
                 ));
         when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
@@ -434,7 +454,7 @@ class ShipmentServiceTest {
                 () -> shipmentService.createShipment(MANDOR_ID, request)
         );
 
-        assertEquals("Harvest not found: " + HARVEST_C, exception.getMessage());
+        assertEquals(HARVEST_NOT_FOUND_PREFIX + HARVEST_C, exception.getMessage());
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
     }
 

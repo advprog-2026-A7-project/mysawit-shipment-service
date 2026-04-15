@@ -37,6 +37,7 @@ class ShipmentErrorHandlingTest {
     private static final String SHIPMENTS_PATH = "/api/shipments/";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String HARVEST_VALIDATION_FAILED = "HARVEST_VALIDATION_FAILED";
     private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
     private static final String HARVEST_SERVICE_UNAVAILABLE_MESSAGE = "Harvest service is unavailable";
     private static final String JSON_ERROR = "$.error";
@@ -119,7 +120,7 @@ class ShipmentErrorHandlingTest {
 
         performGetShipment(WEIGHT_ID)
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath(JSON_ERROR).value(HARVEST_VALIDATION_FAILED))
                 .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
     }
 
@@ -139,7 +140,7 @@ class ShipmentErrorHandlingTest {
         when(shipmentService.createShipment(eq(MANDOR_ID), any()))
                 .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, HttpStatus.NOT_FOUND));
 
-        assertCreateShipmentError("HARVEST_VALIDATION_FAILED", HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, status().isNotFound());
+        assertCreateShipmentError(HARVEST_VALIDATION_FAILED, HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, status().isNotFound());
     }
 
     @Test
@@ -148,7 +149,7 @@ class ShipmentErrorHandlingTest {
                 .thenThrow(new HarvestValidationException("Harvest already claimed: " + WEIGHT_ID, HttpStatus.CONFLICT));
 
         assertCreateShipmentError(
-                "HARVEST_VALIDATION_FAILED",
+                HARVEST_VALIDATION_FAILED,
                 "Harvest already claimed: " + WEIGHT_ID,
                 status().isConflict()
         );
@@ -163,7 +164,7 @@ class ShipmentErrorHandlingTest {
                 ));
 
         assertCreateShipmentError(
-                "HARVEST_VALIDATION_FAILED",
+                HARVEST_VALIDATION_FAILED,
                 "Harvest status must be Approved: " + WEIGHT_ID,
                 status().isBadRequest()
         );
