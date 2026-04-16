@@ -37,7 +37,7 @@ public class ShipmentExceptionHandler {
 
     @ExceptionHandler(HarvestValidationException.class)
     public ResponseEntity<Map<String, String>> handleHarvestValidation(HarvestValidationException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(ex.getStatus())
                 .body(buildError("HARVEST_VALIDATION_FAILED", ex.getMessage()));
     }
 

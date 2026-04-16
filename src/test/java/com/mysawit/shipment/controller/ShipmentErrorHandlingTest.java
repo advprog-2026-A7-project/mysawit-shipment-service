@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -36,6 +37,7 @@ class ShipmentErrorHandlingTest {
     private static final String SHIPMENTS_PATH = "/api/shipments/";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String HARVEST_VALIDATION_FAILED = "HARVEST_VALIDATION_FAILED";
     private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
     private static final String HARVEST_SERVICE_UNAVAILABLE_MESSAGE = "Harvest service is unavailable";
     private static final String JSON_ERROR = "$.error";
@@ -114,11 +116,11 @@ class ShipmentErrorHandlingTest {
     @Test
     void getShipmentByIdReturnsHarvestValidationErrorContract() throws Exception {
         when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
-                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
+                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, HttpStatus.NOT_FOUND));
 
         performGetShipment(WEIGHT_ID)
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_VALIDATION_FAILED"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath(JSON_ERROR).value(HARVEST_VALIDATION_FAILED))
                 .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
     }
 
@@ -134,11 +136,38 @@ class ShipmentErrorHandlingTest {
     }
 
     @Test
-    void createShipmentReturnsHarvestValidationErrorContract() throws Exception {
+    void createShipmentReturnsHarvestValidationNotFoundErrorContract() throws Exception {
         when(shipmentService.createShipment(eq(MANDOR_ID), any()))
-                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID));
+                .thenThrow(new HarvestValidationException(HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, HttpStatus.NOT_FOUND));
 
-        assertCreateShipmentError("HARVEST_VALIDATION_FAILED", HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, status().isBadRequest());
+        assertCreateShipmentError(HARVEST_VALIDATION_FAILED, HARVEST_NOT_FOUND_PREFIX + WEIGHT_ID, status().isNotFound());
+    }
+
+    @Test
+    void createShipmentReturnsHarvestValidationConflictErrorContract() throws Exception {
+        when(shipmentService.createShipment(eq(MANDOR_ID), any()))
+                .thenThrow(new HarvestValidationException("Harvest already claimed: " + WEIGHT_ID, HttpStatus.CONFLICT));
+
+        assertCreateShipmentError(
+                HARVEST_VALIDATION_FAILED,
+                "Harvest already claimed: " + WEIGHT_ID,
+                status().isConflict()
+        );
+    }
+
+    @Test
+    void createShipmentReturnsHarvestValidationBadRequestErrorContract() throws Exception {
+        when(shipmentService.createShipment(eq(MANDOR_ID), any()))
+                .thenThrow(new HarvestValidationException(
+                        "Harvest status must be Approved: " + WEIGHT_ID,
+                        HttpStatus.BAD_REQUEST
+                ));
+
+        assertCreateShipmentError(
+                HARVEST_VALIDATION_FAILED,
+                "Harvest status must be Approved: " + WEIGHT_ID,
+                status().isBadRequest()
+        );
     }
 
     @Test

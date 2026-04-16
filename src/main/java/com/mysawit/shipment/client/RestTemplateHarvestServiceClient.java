@@ -1,30 +1,30 @@
 package com.mysawit.shipment.client;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
+import com.mysawit.shipment.exception.HarvestValidationException;
 
 @Service
 public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
 
     private static final String HARVESTS_PATH = "/harvests";
+    private static final String HARVEST_SERVICE_UNAVAILABLE = "Harvest service is unavailable";
+    private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
+    private static final String HARVEST_COULD_NOT_BE_VALIDATED_PREFIX = "Harvest could not be validated: ";
+    private static final String FOREMAN_HEADER = "X-Foreman-Id";
 
     private final RestTemplate restTemplate;
     private final String harvestServiceBaseUrl;
@@ -51,43 +51,43 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     }
 
     @Override
-    public Map<UUID, HarvestDetails> getHarvestsByIds(UUID foremanId, List<UUID> harvestIds) {
-        if (harvestIds == null || harvestIds.isEmpty()) {
-            return Map.of();
-        }
-
+    public HarvestDetails getHarvestById(UUID foremanId, UUID harvestId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("X-Foreman-Id", foremanId.toString());
-
-            ResponseEntity<List<HarvestPayload>> response = restTemplate.exchange(
-                    harvestServiceBaseUrl + HARVESTS_PATH,
+            HarvestPayload harvest = restTemplate.exchange(
+                    harvestUrl(harvestId),
                     HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            List<HarvestPayload> harvests = response.getBody();
-            if (harvests == null || harvests.isEmpty()) {
-                return Map.of();
+                    requestEntity(foremanId),
+                    HarvestPayload.class
+            ).getBody();
+            if (harvest == null) {
+                throw HarvestValidationException.notFound(HARVEST_NOT_FOUND_PREFIX + harvestId);
             }
-
-            return toRequestedHarvests(harvestIds, harvests);
+            return new HarvestDetails(harvest.id(), normalizeStatus(harvest.status()));
+        } catch (HttpStatusCodeException ex) {
+            if (ex.getStatusCode().is4xxClientError()) {
+                throw toHarvestValidationException(harvestId, ex);
+            }
+            throw new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE, ex);
         } catch (RestClientException ex) {
-            throw new HarvestServiceUnavailableException("Harvest service is unavailable", ex);
+            throw new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE, ex);
         }
     }
 
-    private Map<UUID, HarvestDetails> toRequestedHarvests(List<UUID> harvestIds, List<HarvestPayload> harvests) {
-        Set<UUID> requestedIds = Set.copyOf(harvestIds);
-        Map<UUID, HarvestDetails> result = new LinkedHashMap<>();
-        for (HarvestPayload harvest : harvests) {
-            if (harvest.id() != null && requestedIds.contains(harvest.id())) {
-                result.put(harvest.id(), new HarvestDetails(harvest.id(), normalizeStatus(harvest.status())));
-            }
+    private HttpEntity<Void> requestEntity(UUID foremanId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(FOREMAN_HEADER, foremanId.toString());
+        return new HttpEntity<>(headers);
+    }
+
+    private String harvestUrl(UUID harvestId) {
+        return harvestServiceBaseUrl + HARVESTS_PATH + "/" + harvestId;
+    }
+
+    private HarvestValidationException toHarvestValidationException(UUID harvestId, HttpStatusCodeException ex) {
+        if (ex.getStatusCode().isSameCodeAs(org.springframework.http.HttpStatus.NOT_FOUND)) {
+            return HarvestValidationException.notFound(HARVEST_NOT_FOUND_PREFIX + harvestId);
         }
-        return result;
+        return HarvestValidationException.badRequest(HARVEST_COULD_NOT_BE_VALIDATED_PREFIX + harvestId);
     }
 
     private String normalizeStatus(String rawStatus) {
