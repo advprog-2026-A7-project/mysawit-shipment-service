@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy Shipment Service (EC2)
+    name: Deploy Shipment Service (EC2 IPv6 Direct DB)
     if: ${{ github.ref_name == 'main' }}
     runs-on: ubuntu-latest
     env:
@@ -24,24 +24,25 @@ jobs:
       STAGING_PORT: ${{ vars.STAGING_PORT }}
       REMOTE_APP_DIR: ${{ vars.REMOTE_APP_DIR }}
       SHIPMENT_HOST_PORT: ${{ vars.SHIPMENT_HOST_PORT }}
-
+      SPRING_DATASOURCE_URL_DIRECT: ${{ secrets.SPRING_DATASOURCE_URL_DIRECT }}
       SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
       SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       JWT_EXPIRATION: ${{ vars.JWT_EXPIRATION }}
       CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+      JAVA_OPTS: ${{ vars.JAVA_OPTS }}
+      JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
 
     steps:
       - name: Validate deployment inputs and secrets
         run: |
           set -euo pipefail
 
-          required_secrets=(
+          required_values=(
             STAGING_HOST
             STAGING_USER
             STAGING_SSH_KEY
-            SPRING_DATASOURCE_URL
             SPRING_DATASOURCE_USERNAME
             SPRING_DATASOURCE_PASSWORD
             JWT_SECRET
@@ -49,7 +50,7 @@ jobs:
           )
 
           missing=()
-          for key in "${required_secrets[@]}"; do
+          for key in "${required_values[@]}"; do
             if [ -z "${!key:-}" ]; then
               missing+=("$key")
             fi
@@ -60,17 +61,94 @@ jobs:
             exit 1
           fi
 
+          DATASOURCE_URL="${SPRING_DATASOURCE_URL_DIRECT:-${SPRING_DATASOURCE_URL:-}}"
+          if [ -z "$DATASOURCE_URL" ]; then
+            echo "::error::Missing datasource URL. Set SPRING_DATASOURCE_URL_DIRECT to the Supabase Direct Connection JDBC URL."
+            exit 1
+          fi
+
+          if [[ "$DATASOURCE_URL" != jdbc:postgresql://* ]]; then
+            echo "::error::Datasource URL must be a PostgreSQL JDBC URL."
+            exit 1
+          fi
+
+          if [[ "$DATASOURCE_URL" != *"sslmode=require"* ]]; then
+            echo "::warning::Datasource URL does not contain sslmode=require. Supabase Direct Connection normally requires SSL."
+          fi
+
+          if [ "${SHIPMENT_HOST_PORT:-8084}" != "8084" ]; then
+            echo "::error::SHIPMENT_HOST_PORT must stay 8084 when using Docker host networking."
+            exit 1
+          fi
+
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build shipment JAR
+        run: ./gradlew --no-daemon clean test bootJar
 
       - name: Set deploy metadata
         run: |
           set -euo pipefail
           echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
           echo "STAGING_PORT=${STAGING_PORT:-22}" >> "$GITHUB_ENV"
-          echo "REMOTE_APP_DIR=${REMOTE_APP_DIR:-/home/${STAGING_USER}/mysawit-shipment}" >> "$GITHUB_ENV"
+          echo "REMOTE_APP_DIR=${REMOTE_APP_DIR:-/home/${STAGING_USER}/apps/mysawit-shipment-service}" >> "$GITHUB_ENV"
           echo "SHIPMENT_HOST_PORT=${SHIPMENT_HOST_PORT:-8084}" >> "$GITHUB_ENV"
           echo "JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}" >> "$GITHUB_ENV"
+          echo "JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx768m}" >> "$GITHUB_ENV"
+          echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Djava.net.preferIPv6Addresses=true -Djava.net.preferIPv4Stack=false -Dsun.net.inetaddr.ttl=60}" >> "$GITHUB_ENV"
+
+      - name: Create release bundle
+        run: |
+          set -euo pipefail
+          sanitize_single_line() {
+            local key="$1"
+            local value="$2"
+            if printf '%s' "$value" | grep -q $'\n'; then
+              echo "::error::${key} must be single-line for Docker env-file usage"
+              exit 1
+            fi
+          }
+
+          DATASOURCE_URL="${SPRING_DATASOURCE_URL_DIRECT:-${SPRING_DATASOURCE_URL:-}}"
+
+          sanitize_single_line "SPRING_DATASOURCE_URL" "$DATASOURCE_URL"
+          sanitize_single_line "SPRING_DATASOURCE_USERNAME" "$SPRING_DATASOURCE_USERNAME"
+          sanitize_single_line "SPRING_DATASOURCE_PASSWORD" "$SPRING_DATASOURCE_PASSWORD"
+          sanitize_single_line "JWT_SECRET" "$JWT_SECRET"
+          sanitize_single_line "JWT_EXPIRATION" "$JWT_EXPIRATION"
+          sanitize_single_line "CORS_ORIGINS" "$CORS_ORIGINS"
+          sanitize_single_line "JAVA_OPTS" "$JAVA_OPTS"
+          sanitize_single_line "JAVA_TOOL_OPTIONS" "$JAVA_TOOL_OPTIONS"
+
+          mkdir -p release/build/libs release/scripts
+          cp Dockerfile release/Dockerfile
+          cp build/libs/*.jar release/build/libs/
+          cp scripts/deploy-ec2.sh release/scripts/deploy-ec2.sh
+          chmod 755 release/scripts/deploy-ec2.sh
+
+          {
+            printf 'SPRING_PROFILES_ACTIVE=prod\n'
+            printf 'SERVER_PORT=8084\n'
+            printf 'SPRING_DATASOURCE_URL=%s\n' "$DATASOURCE_URL"
+            printf 'SPRING_DATASOURCE_USERNAME=%s\n' "$SPRING_DATASOURCE_USERNAME"
+            printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$SPRING_DATASOURCE_PASSWORD"
+            printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
+            printf 'JWT_EXPIRATION=%s\n' "$JWT_EXPIRATION"
+            printf 'CORS_ORIGINS=%s\n' "$CORS_ORIGINS"
+            printf 'JAVA_OPTS=%s\n' "$JAVA_OPTS"
+            printf 'JAVA_TOOL_OPTIONS=%s\n' "$JAVA_TOOL_OPTIONS"
+          } > release/.env.deploy
+
+          chmod 600 release/.env.deploy
+          tar -czf release.tgz -C release .
 
       - name: Prepare SSH client
         run: |
@@ -80,85 +158,27 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -T 30 -p "$STAGING_PORT" -H "$STAGING_HOST" >> ~/.ssh/known_hosts || true
 
-      - name: Create runtime env file
-        run: |
-          set -euo pipefail
-          {
-            echo "SPRING_PROFILES_ACTIVE=prod"
-            echo "SERVER_PORT=8084"
-            echo "SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}"
-            echo "SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}"
-            echo "SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}"
-            echo "JWT_SECRET=${JWT_SECRET}"
-            echo "JWT_EXPIRATION=${JWT_EXPIRATION}"
-            echo "CORS_ORIGINS=${CORS_ORIGINS}"
-          } > .env.deploy
-
-      - name: Upload app source and env file
+      - name: Upload release bundle
         run: |
           set -euo pipefail
           SSH_OPTS="-o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -p $STAGING_PORT"
-          SCP_OPTS="-o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -P $STAGING_PORT"
-          tar \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='build' \
-            -czf /tmp/mysawit-shipment-src.tgz .
+          REMOTE_RELEASE_DIR="${REMOTE_APP_DIR}/releases/${IMAGE_TAG}"
+          echo "REMOTE_RELEASE_DIR=${REMOTE_RELEASE_DIR}" >> "$GITHUB_ENV"
 
-          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" "mkdir -p '$REMOTE_APP_DIR'"
-          scp $SCP_OPTS /tmp/mysawit-shipment-src.tgz "$STAGING_USER@$STAGING_HOST:/tmp/mysawit-shipment-src.tgz"
-          scp $SCP_OPTS .env.deploy "$STAGING_USER@$STAGING_HOST:$REMOTE_APP_DIR/.env"
-          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" "tar -xzf /tmp/mysawit-shipment-src.tgz -C '$REMOTE_APP_DIR' && chmod 700 '$REMOTE_APP_DIR' && chmod 600 '$REMOTE_APP_DIR/.env'"
+          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" "mkdir -p '$REMOTE_RELEASE_DIR' '$REMOTE_APP_DIR/shared'"
+          scp -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -P "$STAGING_PORT" release.tgz "$STAGING_USER@$STAGING_HOST:$REMOTE_APP_DIR/release-${IMAGE_TAG}.tgz"
+          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" "tar -xzf '$REMOTE_APP_DIR/release-${IMAGE_TAG}.tgz' -C '$REMOTE_RELEASE_DIR' && rm -f '$REMOTE_APP_DIR/release-${IMAGE_TAG}.tgz'"
 
-      - name: Build and run shipment container
+      - name: Deploy on EC2
         run: |
           set -euo pipefail
-          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
-            "export REMOTE_APP_DIR='$REMOTE_APP_DIR' IMAGE_TAG='$IMAGE_TAG' SHIPMENT_HOST_PORT='$SHIPMENT_HOST_PORT'; bash -s" <<'EOSSH'
-          set -euo pipefail
-          cd "$REMOTE_APP_DIR"
+          SSH_OPTS="-o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -p $STAGING_PORT"
+          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" \
+            "export APP_HOME='$REMOTE_APP_DIR' RELEASE_DIR='$REMOTE_RELEASE_DIR' IMAGE_TAG='$IMAGE_TAG' APP_NAME='mysawit-shipment' CONTAINER_NAME='mysawit-shipment' APP_PORT='8084' HOST_PORT='$SHIPMENT_HOST_PORT' DEPLOY_LOG='$REMOTE_APP_DIR/deploy.log'; bash '$REMOTE_RELEASE_DIR/scripts/deploy-ec2.sh'"
 
-          DOCKER_BIN="docker"
-          if ! docker info >/dev/null 2>&1; then
-            DOCKER_BIN="sudo docker"
-          fi
-
-          $DOCKER_BIN build --pull -t "mysawit-shipment:${IMAGE_TAG}" -t mysawit-shipment:latest .
-          $DOCKER_BIN rm -f mysawit-shipment >/dev/null 2>&1 || true
-
-          $DOCKER_BIN run -d \
-            --name mysawit-shipment \
-            --env-file .env \
-            -p "${SHIPMENT_HOST_PORT}:8084" \
-            --restart unless-stopped \
-            "mysawit-shipment:${IMAGE_TAG}"
-          EOSSH
-
-      - name: Verify service health
+      - name: Fetch deployment diagnostics on failure
+        if: failure()
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=accept-new -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
-            "export SHIPMENT_HOST_PORT='$SHIPMENT_HOST_PORT'; bash -s" <<'EOSSH'
-          set -euo pipefail
-
-          DOCKER_BIN="docker"
-          if ! docker info >/dev/null 2>&1; then
-            DOCKER_BIN="sudo docker"
-          fi
-
-          for i in $(seq 1 24); do
-            if command -v curl >/dev/null 2>&1 && curl -fsS "http://localhost:${SHIPMENT_HOST_PORT}/actuator/health" >/dev/null; then
-              echo "Shipment service is healthy"
-              exit 0
-            fi
-            if command -v wget >/dev/null 2>&1 && wget -qO- "http://localhost:${SHIPMENT_HOST_PORT}/actuator/health" >/dev/null; then
-              echo "Shipment service is healthy"
-              exit 0
-            fi
-            sleep 5
-          done
-
-          $DOCKER_BIN logs --tail 200 mysawit-shipment || true
-          echo "::error::Shipment service health check failed"
-          exit 1
-          EOSSH
+          SSH_OPTS="-o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -p $STAGING_PORT"
+          ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" "tail -n 250 '$REMOTE_APP_DIR/deploy.log' || true; (docker ps -a || sudo docker ps -a || true); (docker logs --tail 250 mysawit-shipment || sudo docker logs --tail 250 mysawit-shipment || true)"
