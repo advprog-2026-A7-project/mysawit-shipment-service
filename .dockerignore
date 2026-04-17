@@ -6,6 +6,8 @@
 .gradle
 .gradle-local
 build
+!build/libs/
+!build/libs/*.jar
 bin
 context
 .env
