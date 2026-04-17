@@ -24,17 +24,16 @@ jobs:
       STAGING_PORT: ${{ vars.STAGING_PORT }}
       REMOTE_APP_DIR: ${{ vars.REMOTE_APP_DIR }}
       SHIPMENT_HOST_PORT: ${{ vars.SHIPMENT_HOST_PORT }}
-      SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
-      SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
-      SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
       JWT_EXPIRATION: ${{ vars.JWT_EXPIRATION }}
-      CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
-      JAVA_OPTS: ${{ vars.JAVA_OPTS }}
-      JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
 
     steps:
       - name: Validate deployment inputs and secrets
+        env:
+          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
         run: |
           set -euo pipefail
 
@@ -95,6 +94,9 @@ jobs:
         run: ./gradlew --no-daemon clean test bootJar
 
       - name: Set deploy metadata
+        env:
+          INPUT_JAVA_OPTS: ${{ vars.JAVA_OPTS }}
+          INPUT_JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
         run: |
           set -euo pipefail
           echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
@@ -102,10 +104,16 @@ jobs:
           echo "REMOTE_APP_DIR=${REMOTE_APP_DIR:-/home/${STAGING_USER}/apps/mysawit-shipment-service}" >> "$GITHUB_ENV"
           echo "SHIPMENT_HOST_PORT=${SHIPMENT_HOST_PORT:-8084}" >> "$GITHUB_ENV"
           echo "JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}" >> "$GITHUB_ENV"
-          echo "JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx768m}" >> "$GITHUB_ENV"
-          echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Djava.net.preferIPv6Addresses=true -Djava.net.preferIPv4Stack=false -Dsun.net.inetaddr.ttl=60}" >> "$GITHUB_ENV"
+          echo "JAVA_OPTS=${INPUT_JAVA_OPTS:--Xms256m -Xmx768m}" >> "$GITHUB_ENV"
+          echo "JAVA_TOOL_OPTIONS=${INPUT_JAVA_TOOL_OPTIONS:--Djava.net.preferIPv6Addresses=true -Djava.net.preferIPv4Stack=false -Dsun.net.inetaddr.ttl=60}" >> "$GITHUB_ENV"
 
       - name: Create release bundle
+        env:
+          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
         run: |
           set -euo pipefail
           sanitize_single_line() {
