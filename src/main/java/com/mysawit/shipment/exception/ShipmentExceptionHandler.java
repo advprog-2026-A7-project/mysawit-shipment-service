@@ -1,12 +1,12 @@
 package com.mysawit.shipment.exception;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestControllerAdvice
 public class ShipmentExceptionHandler {
@@ -29,6 +29,24 @@ public class ShipmentExceptionHandler {
                 .body(buildError("INVALID_STATUS_TRANSITION", ex.getMessage()));
     }
 
+    @ExceptionHandler(ShipmentWeightExceededException.class)
+    public ResponseEntity<Map<String, String>> handleWeightExceeded(ShipmentWeightExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildError("WEIGHT_EXCEEDED", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HarvestValidationException.class)
+    public ResponseEntity<Map<String, String>> handleHarvestValidation(HarvestValidationException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(buildError("HARVEST_VALIDATION_FAILED", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HarvestServiceUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleHarvestServiceUnavailable(HarvestServiceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(buildError("HARVEST_SERVICE_UNAVAILABLE", ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -37,9 +55,8 @@ public class ShipmentExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
-        Map<String, String> body = new HashMap<>();
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(buildError("INTERNAL_SERVER_ERROR", "An unexpected error occurred"));
     }
 
     private Map<String, String> buildError(String code, String message) {

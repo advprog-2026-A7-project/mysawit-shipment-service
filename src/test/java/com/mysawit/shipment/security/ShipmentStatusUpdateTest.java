@@ -1,36 +1,39 @@
 package com.mysawit.shipment.security;
 
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.mysawit.shipment.controller.ShipmentController;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.service.ShipmentService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-
-import java.util.UUID;
-
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ShipmentController.class)
+@Import(JwtTokenProvider.class)
+@ActiveProfiles("test")
 class ShipmentStatusUpdateTest {
 
     private static final UUID SHIPMENT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID SUPIR_42_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
     private static final String PATCH_STATUS_PATH = "/api/shipments/" + SHIPMENT_ID + "/status";
     private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String NON_SUPIR_TOKEN = "Bearer token-with-non-supir-role";
-    private static final String SUPIR_42_TOKEN = "Bearer token-with-supir-role-user-" + SUPIR_42_ID;
+    private static final String BEARER_PREFIX = "Bearer ";
     private static final String MENGIRIM_BODY = "{\"status\":\"MENGIRIM\"}";
     private static final String TIBA_BODY = "{\"status\":\"TIBA\"}";
     private static final String UNKNOWN_BODY = "{\"status\":\"UNKNOWN\"}";
@@ -38,7 +41,7 @@ class ShipmentStatusUpdateTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ShipmentService shipmentService;
 
     @Test
@@ -51,7 +54,9 @@ class ShipmentStatusUpdateTest {
 
     @Test
     void patchStatusWithWrongRoleReturnsForbidden() throws Exception {
-        mockMvc.perform(patchStatusRequest(NON_SUPIR_TOKEN, MENGIRIM_BODY))
+        String buruhToken = JwtFixture.tokenWithRole(SUPIR_42_ID.toString(), "BURUH");
+
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + buruhToken, MENGIRIM_BODY))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(shipmentService);
@@ -62,12 +67,14 @@ class ShipmentStatusUpdateTest {
         Shipment updated = new Shipment();
         updated.setId(SHIPMENT_ID);
         updated.setSupirUserId(SUPIR_42_ID);
-        updated.setStatus("MENGIRIM");
+        updated.setStatus(ShipmentStatus.MENGIRIM);
 
         when(shipmentService.updateShipmentStatus(SHIPMENT_ID, SUPIR_42_ID, ShipmentStatus.MENGIRIM))
                 .thenReturn(updated);
 
-        mockMvc.perform(patchStatusRequest(SUPIR_42_TOKEN, MENGIRIM_BODY))
+        String supirToken = JwtFixture.supirToken(SUPIR_42_ID.toString());
+
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + supirToken, MENGIRIM_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("MENGIRIM"));
 
@@ -79,7 +86,9 @@ class ShipmentStatusUpdateTest {
         when(shipmentService.updateShipmentStatus(SHIPMENT_ID, SUPIR_42_ID, ShipmentStatus.TIBA))
                 .thenThrow(new ShipmentInvalidTransitionException("Invalid status transition"));
 
-        mockMvc.perform(patchStatusRequest(SUPIR_42_TOKEN, TIBA_BODY))
+        String supirToken = JwtFixture.supirToken(SUPIR_42_ID.toString());
+
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + supirToken, TIBA_BODY))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("INVALID_STATUS_TRANSITION"))
                 .andExpect(jsonPath("$.message").value("Invalid status transition"));
@@ -87,14 +96,18 @@ class ShipmentStatusUpdateTest {
 
     @Test
     void patchStatusReturnsBadRequestWhenStatusValueUnknown() throws Exception {
-        mockMvc.perform(patchStatusRequest(SUPIR_42_TOKEN, UNKNOWN_BODY))
+        String supirToken = JwtFixture.supirToken(SUPIR_42_ID.toString());
+
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + supirToken, UNKNOWN_BODY))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
     }
 
     @Test
     void patchStatusReturnsBadRequestWhenStatusMissing() throws Exception {
-        mockMvc.perform(patchStatusRequest(SUPIR_42_TOKEN, "{}"))
+        String supirToken = JwtFixture.supirToken(SUPIR_42_ID.toString());
+
+        mockMvc.perform(patchStatusRequest(BEARER_PREFIX + supirToken, "{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.message").value("Invalid status value"));
