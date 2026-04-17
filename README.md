@@ -47,13 +47,11 @@ curl http://localhost:8084/actuator/health
   - `STAGING_HOST`
   - `STAGING_USER`
   - `STAGING_SSH_KEY`
-  - `SPRING_DATASOURCE_URL_DIRECT` for the Supabase Direct Connection JDBC URL over IPv6
+  - `SPRING_DATASOURCE_URL` for the Supabase Direct Connection JDBC URL over IPv6
   - `SPRING_DATASOURCE_USERNAME`
   - `SPRING_DATASOURCE_PASSWORD`
   - `JWT_SECRET`
   - `CORS_ORIGINS`
-- Optional GitHub repository secrets:
-  - `SPRING_DATASOURCE_URL` as a fallback secret name during migration if you have not renamed it yet
 - EC2 host prerequisites:
   - Ubuntu host with global IPv6 enabled on the instance
   - Docker installed and usable by the deploy user or through `sudo`

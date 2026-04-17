@@ -24,7 +24,6 @@ jobs:
       STAGING_PORT: ${{ vars.STAGING_PORT }}
       REMOTE_APP_DIR: ${{ vars.REMOTE_APP_DIR }}
       SHIPMENT_HOST_PORT: ${{ vars.SHIPMENT_HOST_PORT }}
-      SPRING_DATASOURCE_URL_DIRECT: ${{ secrets.SPRING_DATASOURCE_URL_DIRECT }}
       SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
       SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
@@ -43,6 +42,7 @@ jobs:
             STAGING_HOST
             STAGING_USER
             STAGING_SSH_KEY
+            SPRING_DATASOURCE_URL
             SPRING_DATASOURCE_USERNAME
             SPRING_DATASOURCE_PASSWORD
             JWT_SECRET
@@ -61,9 +61,9 @@ jobs:
             exit 1
           fi
 
-          DATASOURCE_URL="${SPRING_DATASOURCE_URL_DIRECT:-${SPRING_DATASOURCE_URL:-}}"
+          DATASOURCE_URL="${SPRING_DATASOURCE_URL:-}"
           if [ -z "$DATASOURCE_URL" ]; then
-            echo "::error::Missing datasource URL. Set SPRING_DATASOURCE_URL_DIRECT to the Supabase Direct Connection JDBC URL."
+            echo "::error::Missing datasource URL. Set SPRING_DATASOURCE_URL to the Supabase Direct Connection JDBC URL."
             exit 1
           fi
 
@@ -117,7 +117,7 @@ jobs:
             fi
           }
 
-          DATASOURCE_URL="${SPRING_DATASOURCE_URL_DIRECT:-${SPRING_DATASOURCE_URL:-}}"
+          DATASOURCE_URL="${SPRING_DATASOURCE_URL:-}"
 
           sanitize_single_line "SPRING_DATASOURCE_URL" "$DATASOURCE_URL"
           sanitize_single_line "SPRING_DATASOURCE_USERNAME" "$SPRING_DATASOURCE_USERNAME"
