@@ -84,6 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           {
+            echo "SPRING_PROFILES_ACTIVE=prod"
             echo "SERVER_PORT=8084"
             echo "SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}"
             echo "SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}"
@@ -103,16 +104,14 @@ jobs:
             -czf /tmp/mysawit-shipment-src.tgz .
 
           ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" "mkdir -p '$REMOTE_APP_DIR'"
-
           scp -P "$STAGING_PORT" /tmp/mysawit-shipment-src.tgz "$STAGING_USER@$STAGING_HOST:/tmp/mysawit-shipment-src.tgz"
           scp -P "$STAGING_PORT" .env.deploy "$STAGING_USER@$STAGING_HOST:$REMOTE_APP_DIR/.env"
-
-          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" "tar -xzf /tmp/mysawit-shipment-src.tgz -C '$REMOTE_APP_DIR'"
+          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" "tar -xzf /tmp/mysawit-shipment-src.tgz -C '$REMOTE_APP_DIR' && chmod 700 '$REMOTE_APP_DIR' && chmod 600 '$REMOTE_APP_DIR/.env'"
 
       - name: Build and run shipment container
         run: |
           set -euo pipefail
-          ssh -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
+          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -p "$STAGING_PORT" "$STAGING_USER@$STAGING_HOST" \
             "export REMOTE_APP_DIR='$REMOTE_APP_DIR' IMAGE_TAG='$IMAGE_TAG' SHIPMENT_HOST_PORT='$SHIPMENT_HOST_PORT'; bash -s" <<'EOSSH'
           set -euo pipefail
           cd "$REMOTE_APP_DIR"
@@ -122,7 +121,7 @@ jobs:
             DOCKER_BIN="sudo docker"
           fi
 
-          $DOCKER_BIN build -t "mysawit-shipment:${IMAGE_TAG}" -t mysawit-shipment:latest .
+          $DOCKER_BIN build --pull -t "mysawit-shipment:${IMAGE_TAG}" -t mysawit-shipment:latest .
           $DOCKER_BIN rm -f mysawit-shipment >/dev/null 2>&1 || true
 
           $DOCKER_BIN run -d \

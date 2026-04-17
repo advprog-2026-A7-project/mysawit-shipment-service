@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+.agents
+.gradle
+.gradle-local
+build
+bin
+context
+.env
+.env.example
+AGENTS.md
+HELP.md
+README.md
+skills-lock.json
