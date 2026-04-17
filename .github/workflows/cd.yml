@@ -137,8 +137,15 @@ jobs:
           sanitize_single_line "JAVA_TOOL_OPTIONS" "$JAVA_TOOL_OPTIONS"
 
           mkdir -p release/build/libs release/scripts
+          shopt -s nullglob
+          jar_candidates=(build/libs/*.jar)
+          if [ "${#jar_candidates[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one boot JAR in build/libs but found ${#jar_candidates[@]}"
+            ls -la build/libs || true
+            exit 1
+          fi
           cp Dockerfile release/Dockerfile
-          cp build/libs/*.jar release/build/libs/
+          install -m 644 "${jar_candidates[0]}" release/build/libs/app.jar
           cp scripts/deploy-ec2.sh release/scripts/deploy-ec2.sh
           chmod 755 release/scripts/deploy-ec2.sh
 
