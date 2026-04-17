@@ -166,7 +166,10 @@ fi
 
 require_file "$ENV_SOURCE_FILE"
 require_file "$RELEASE_DIR/Dockerfile"
-require_file "$RELEASE_DIR/build/libs/app.jar"
+if ! compgen -G "$RELEASE_DIR/build/libs/*.jar" > /dev/null; then
+  log "Required JAR missing in ${RELEASE_DIR}/build/libs"
+  exit 1
+fi
 
 PREVIOUS_IMAGE_ID="$(docker_cmd inspect --format '{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || docker_cmd image inspect --format '{{.Id}}' "${APP_NAME}:latest" 2>/dev/null || true)"
 
