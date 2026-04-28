@@ -37,7 +37,7 @@ out/
 ### VS Code ###
 .vscode/
 
-context/
+.context/
 .skills*
 .agents
 AGENTS.md
