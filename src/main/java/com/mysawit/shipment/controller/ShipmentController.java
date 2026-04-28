@@ -1,6 +1,5 @@
 package com.mysawit.shipment.controller;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -104,10 +103,10 @@ public class ShipmentController {
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
-        Map<String, String> health = new HashMap<>();
-        health.put("status", "UP");
-        health.put("service", "mysawit-shipment-service");
-        return ResponseEntity.ok(health);
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "service", "mysawit-shipment-service"
+        ));
     }
 
     private UUID extractRequesterUserId(HttpServletRequest request) {
