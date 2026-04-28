@@ -11,13 +11,20 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "shipment_items")
+@Table(
+        name = "shipment_items",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_shipment_items_harvest_id",
+                columnNames = "harvest_id"
+        )
+)
 @Getter
 @Setter
 public class ShipmentItem {

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -217,6 +218,68 @@ class ShipmentServiceTest {
     }
 
     @Test
+    void approveShipmentByAdminUpdatesTibaShipmentToAdminApproved() {
+        Shipment shipment = new Shipment();
+        shipment.setId(ID_11);
+        shipment.setSupirUserId(OWNER_42);
+        shipment.setStatus(ShipmentStatus.TIBA);
+        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.save(shipment)).thenReturn(shipment);
+
+        Shipment result = shipmentService.approveShipmentByAdmin(ID_11, ShipmentStatus.ADMIN_APPROVED);
+
+        assertSame(shipment, result);
+        assertEquals(ShipmentStatus.ADMIN_APPROVED, result.getStatus());
+        verify(shipmentRepository).save(shipment);
+    }
+
+    @Test
+    void approveShipmentByAdminUpdatesTibaShipmentToPartiallyRejected() {
+        Shipment shipment = new Shipment();
+        shipment.setId(ID_11);
+        shipment.setSupirUserId(OWNER_42);
+        shipment.setStatus(ShipmentStatus.TIBA);
+        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.save(shipment)).thenReturn(shipment);
+
+        Shipment result = shipmentService.approveShipmentByAdmin(ID_11, ShipmentStatus.PARTIALLY_REJECTED);
+
+        assertSame(shipment, result);
+        assertEquals(ShipmentStatus.PARTIALLY_REJECTED, result.getStatus());
+        verify(shipmentRepository).save(shipment);
+    }
+
+    @Test
+    void approveShipmentByAdminRejectsUnsupportedDecision() {
+        Shipment shipment = new Shipment();
+        shipment.setId(ID_11);
+        shipment.setStatus(ShipmentStatus.TIBA);
+        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> shipmentService.approveShipmentByAdmin(ID_11, ShipmentStatus.MENGIRIM)
+        );
+
+        assertEquals("Invalid admin approval decision", exception.getMessage());
+    }
+
+    @Test
+    void approveShipmentByAdminRejectsBeforeShipmentArrives() {
+        Shipment shipment = new Shipment();
+        shipment.setId(ID_11);
+        shipment.setStatus(ShipmentStatus.MENGIRIM);
+        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+
+        ShipmentInvalidTransitionException exception = assertThrows(
+                ShipmentInvalidTransitionException.class,
+                () -> shipmentService.approveShipmentByAdmin(ID_11, ShipmentStatus.ADMIN_APPROVED)
+        );
+
+        assertEquals("Shipment must be TIBA before admin approval", exception.getMessage());
+    }
+
+    @Test
     void createShipmentSavesEntityWithCalculatedTotalKg() {
         CreateShipmentRequest request = new CreateShipmentRequest(
                 OWNER_42, DESTINATION,
@@ -407,6 +470,29 @@ class ShipmentServiceTest {
         );
 
         assertEquals("Harvest already claimed: " + HARVEST_A, exception.getMessage());
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    }
+
+    @Test
+    void createShipmentFailsWhenConcurrentRequestClaimsHarvestDuringSave() {
+        CreateShipmentRequest request = new CreateShipmentRequest(
+                OWNER_42,
+                DESTINATION,
+                List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0))
+        );
+
+        when(harvestServiceClient.getHarvestById(MANDOR_ID, HARVEST_A))
+                .thenReturn(new HarvestServiceClient.HarvestDetails(HARVEST_A, APPROVED_STATUS));
+        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.save(any(Shipment.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_shipment_items_harvest_id"));
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Harvest already claimed by another shipment", exception.getMessage());
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
     }
 

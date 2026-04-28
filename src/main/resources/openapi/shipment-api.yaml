@@ -266,6 +266,82 @@ paths:
                     error: INVALID_STATUS_TRANSITION
                     message: Invalid status transition
 
+  /api/shipments/{id}/admin-approval:
+    patch:
+      tags: [Shipments]
+      summary: Admin approval for completed shipment
+      description: >
+        Admin approval is only allowed after the shipment has reached TIBA.
+        Valid decisions are ADMIN_APPROVED and PARTIALLY_REJECTED.
+      operationId: approveShipmentByAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminApprovalRequest'
+      responses:
+        "200":
+          description: Admin approval decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentResponse'
+        "400":
+          description: Invalid approval decision payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidDecision:
+                  value:
+                    error: BAD_REQUEST
+                    message: Invalid admin approval decision
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role (not ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbiddenRole:
+                  value:
+                    error: FORBIDDEN
+                    message: Forbidden
+        "404":
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Shipment has not reached TIBA yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notArrived:
+                  value:
+                    error: INVALID_STATUS_TRANSITION
+                    message: Shipment must be TIBA before admin approval
+
   /api/shipments/health:
     get:
       tags: [Health]
@@ -290,7 +366,7 @@ components:
   schemas:
     ShipmentStatus:
       type: string
-      enum: [MEMUAT, MENGIRIM, TIBA]
+      enum: [MEMUAT, MENGIRIM, TIBA, ADMIN_APPROVED, PARTIALLY_REJECTED]
 
     ShipmentResponse:
       type: object
@@ -356,6 +432,15 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/ShipmentStatus'
+      required:
+        - status
+
+    AdminApprovalRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ADMIN_APPROVED, PARTIALLY_REJECTED]
       required:
         - status
 

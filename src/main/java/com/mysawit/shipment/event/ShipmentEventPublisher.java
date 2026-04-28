@@ -3,11 +3,11 @@ package com.mysawit.shipment.event;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.model.ShipmentItem;
 
 @Service
 public class ShipmentEventPublisher {
@@ -18,7 +18,6 @@ public class ShipmentEventPublisher {
     private final RabbitTemplate rabbitTemplate;
     private final Clock clock;
 
-    @Autowired
     public ShipmentEventPublisher(RabbitTemplate rabbitTemplate) {
         this(rabbitTemplate, Clock.systemDefaultZone());
     }
@@ -35,7 +34,7 @@ public class ShipmentEventPublisher {
                 shipment.getMandorUserId(),
                 shipment.getTotalKg(),
                 shipment.getItems().stream()
-                        .map(item -> item.getHarvestId())
+                        .map(ShipmentItem::getHarvestId)
                         .toList(),
                 LocalDateTime.now(clock)
         );
