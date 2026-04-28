@@ -1,10 +1,14 @@
 package com.mysawit.shipment.model;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
+
+import jakarta.persistence.Table;
 
 class ShipmentItemTest {
 
@@ -24,5 +28,13 @@ class ShipmentItemTest {
         assertEquals(harvestId, item.getHarvestId());
         assertEquals(150.0, item.getWeightKg());
         assertSame(shipment, item.getShipment());
+    }
+
+    @Test
+    void harvestIdColumnIsUniqueToGuardConcurrentDoubleClaim() {
+        Table table = ShipmentItem.class.getAnnotation(Table.class);
+
+        assertTrue(Arrays.stream(table.uniqueConstraints())
+                .anyMatch(uniqueConstraint -> Arrays.asList(uniqueConstraint.columnNames()).contains("harvest_id")));
     }
 }

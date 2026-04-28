@@ -23,6 +23,16 @@ class ShipmentOpenApiTest {
         assertContains(spec, "\"503\":");
     }
 
+    @Test
+    void adminApprovalEndpointDocumentsDecisionsAndRequiredAdminRole() throws IOException {
+        String spec = Files.readString(SPEC_PATH);
+
+        assertContains(spec, "/api/shipments/{id}/admin-approval:");
+        assertContains(spec, "ADMIN_APPROVED");
+        assertContains(spec, "PARTIALLY_REJECTED");
+        assertContains(spec, "Admin approval");
+    }
+
     private void assertContains(String spec, String expectedValue) {
         assertTrue(spec.contains(expectedValue));
     }

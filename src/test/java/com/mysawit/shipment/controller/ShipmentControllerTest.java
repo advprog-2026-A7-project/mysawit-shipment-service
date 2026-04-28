@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
+import com.mysawit.shipment.dto.AdminApprovalRequest;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.dto.ShipmentResponse;
 import com.mysawit.shipment.model.Shipment;
@@ -95,12 +96,33 @@ class ShipmentControllerTest {
 
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
         httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, MANDOR_ID);
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "MANDOR");
 
         ResponseEntity<ShipmentResponse> response = shipmentController.createShipment(request, httpRequest);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(ID_1, response.getBody().id());
         verify(shipmentService).createShipment(eq(MANDOR_ID), any(CreateShipmentRequest.class));
+    }
+
+    @Test
+    void approveShipmentByAdminReturnsOkResponse() {
+        AdminApprovalRequest request = new AdminApprovalRequest("ADMIN_APPROVED");
+
+        Shipment saved = sampleShipment(ID_1);
+        saved.setStatus(ShipmentStatus.ADMIN_APPROVED);
+        when(shipmentService.approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED))
+                .thenReturn(saved);
+
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "ADMIN");
+
+        ResponseEntity<ShipmentResponse> response =
+                shipmentController.approveShipmentByAdmin(ID_1, request, httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(ShipmentStatus.ADMIN_APPROVED, response.getBody().status());
+        verify(shipmentService).approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED);
     }
 
     private Shipment sampleShipment(UUID id) {
