@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class ShipmentAccessFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final Set<String> ALLOWED_ROLES = Set.of("SUPIR", "MANDOR");
+    private static final Set<String> ALLOWED_ROLES = Set.of("SUPIR", "MANDOR", "ADMIN");
 
     private final JwtTokenProvider jwtTokenProvider;
 

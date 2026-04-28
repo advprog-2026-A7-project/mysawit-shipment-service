@@ -3,5 +3,7 @@ package com.mysawit.shipment.domain;
 public enum ShipmentStatus {
     MEMUAT,
     MENGIRIM,
-    TIBA
+    TIBA,
+    ADMIN_APPROVED,
+    PARTIALLY_REJECTED
 }

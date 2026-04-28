@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +30,13 @@ public class ShipmentService {
     private static final String ERR_FORBIDDEN = "Forbidden";
     private static final String ERR_HARVEST_ALREADY_CLAIMED_PREFIX = "Harvest already claimed: ";
     private static final String ERR_HARVEST_DUPLICATE_PREFIX = "Duplicate harvest id in request: ";
+    private static final String ERR_HARVEST_RACE_CLAIMED = "Harvest already claimed by another shipment";
     private static final String ERR_HARVEST_NOT_APPROVED_PREFIX = "Harvest status must be Approved: ";
     private static final String ERR_HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
+    private static final String ERR_INVALID_ADMIN_DECISION = "Invalid admin approval decision";
     private static final String ERR_INVALID_STATUS_TRANSITION = "Invalid status transition";
     private static final String ERR_NOT_FOUND_PREFIX = "Shipment not found with id: ";
+    private static final String ERR_SHIPMENT_NOT_ARRIVED = "Shipment must be TIBA before admin approval";
     private static final String REQUIRED_HARVEST_STATUS = "Approved";
     private static final double MAX_WEIGHT_KG = 400.0;
     
@@ -84,6 +88,16 @@ public class ShipmentService {
     }
 
     @Transactional
+    public Shipment approveShipmentByAdmin(UUID shipmentId, ShipmentStatus decision) {
+        Shipment shipment = getShipmentById(shipmentId);
+        ensureValidAdminDecision(decision);
+        ensureShipmentArrivedForAdminApproval(shipment);
+
+        shipment.setStatus(decision);
+        return shipmentRepository.save(shipment);
+    }
+
+    @Transactional
     public Shipment createShipment(UUID mandorUserId, CreateShipmentRequest request) {
         double totalKg = calculateTotalKg(request);
 
@@ -104,7 +118,11 @@ public class ShipmentService {
             shipment.getItems().add(toShipmentItem(shipment, item));
         }
 
-        return shipmentRepository.save(shipment);
+        try {
+            return shipmentRepository.save(shipment);
+        } catch (DataIntegrityViolationException ex) {
+            throw HarvestValidationException.conflict(ERR_HARVEST_RACE_CLAIMED);
+        }
     }
 
     private double calculateTotalKg(CreateShipmentRequest request) {
@@ -161,6 +179,18 @@ public class ShipmentService {
         ShipmentStatus currentStatus = shipment.getStatus();
         if (!ShipmentStatusTransitionPolicy.canTransition(currentStatus, targetStatus)) {
             throw new ShipmentInvalidTransitionException(ERR_INVALID_STATUS_TRANSITION);
+        }
+    }
+
+    private void ensureValidAdminDecision(ShipmentStatus decision) {
+        if (decision != ShipmentStatus.ADMIN_APPROVED && decision != ShipmentStatus.PARTIALLY_REJECTED) {
+            throw new IllegalArgumentException(ERR_INVALID_ADMIN_DECISION);
+        }
+    }
+
+    private void ensureShipmentArrivedForAdminApproval(Shipment shipment) {
+        if (shipment.getStatus() != ShipmentStatus.TIBA) {
+            throw new ShipmentInvalidTransitionException(ERR_SHIPMENT_NOT_ARRIVED);
         }
     }
 }
