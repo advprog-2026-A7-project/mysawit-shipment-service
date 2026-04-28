@@ -20,7 +20,9 @@ import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.dto.ShipmentResponse;
 import com.mysawit.shipment.dto.UpdateStatusRequest;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
+import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.security.ShipmentSecurityAttributes;
+import com.mysawit.shipment.security.ShipmentRoles;
 import com.mysawit.shipment.service.ShipmentService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,9 +33,7 @@ import jakarta.validation.Valid;
 public class ShipmentController {
 
     private static final String ERR_FORBIDDEN = "Forbidden";
-    private static final String ROLE_ADMIN = "ADMIN";
-    private static final String ROLE_MANDOR = "MANDOR";
-    private static final String ROLE_SUPIR = "SUPIR";
+    private static final String ERR_INVALID_STATUS_VALUE = "Invalid status value";
 
     private final ShipmentService shipmentService;
     
@@ -45,19 +45,17 @@ public class ShipmentController {
     public ResponseEntity<List<ShipmentResponse>> getAllShipments(HttpServletRequest request) {
         String role = extractRequesterRole(request);
         UUID requesterUserId = extractRequesterUserId(request);
-        if (ROLE_SUPIR.equals(role) && requesterUserId != null) {
-            return ResponseEntity.ok(shipmentService.getShipmentsBySupirUserId(requesterUserId)
-                    .stream().map(ShipmentResponse::fromEntity).toList());
+        if (ShipmentRoles.SUPIR.equals(role) && requesterUserId != null) {
+            return ResponseEntity.ok(toResponses(shipmentService.getShipmentsBySupirUserId(requesterUserId)));
         }
-        return ResponseEntity.ok(shipmentService.getAllShipments()
-                .stream().map(ShipmentResponse::fromEntity).toList());
+        return ResponseEntity.ok(toResponses(shipmentService.getAllShipments()));
     }
     
     @GetMapping("/{id}")
     public ResponseEntity<ShipmentResponse> getShipmentById(@PathVariable UUID id, HttpServletRequest request) {
         String role = extractRequesterRole(request);
         UUID requesterUserId = extractRequesterUserId(request);
-        if (ROLE_SUPIR.equals(role) && requesterUserId != null) {
+        if (ShipmentRoles.SUPIR.equals(role) && requesterUserId != null) {
             return ResponseEntity.ok(ShipmentResponse.fromEntity(
                     shipmentService.getShipmentByIdForSupirUser(id, requesterUserId)));
         }
@@ -67,10 +65,10 @@ public class ShipmentController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<ShipmentResponse> updateShipmentStatus(
             @PathVariable UUID id,
-            @RequestBody UpdateStatusRequest requestBody,
+            @Valid @RequestBody UpdateStatusRequest requestBody,
             HttpServletRequest request
     ) {
-        requireRole(request, ROLE_SUPIR);
+        requireRole(request, ShipmentRoles.SUPIR);
         UUID requesterUserId = extractRequesterUserId(request);
         ShipmentStatus targetStatus = parseStatus(requestBody);
         return ResponseEntity.ok(ShipmentResponse.fromEntity(
@@ -82,7 +80,7 @@ public class ShipmentController {
             @Valid @RequestBody CreateShipmentRequest request,
             HttpServletRequest httpRequest
     ) {
-        requireRole(httpRequest, ROLE_MANDOR);
+        requireRole(httpRequest, ShipmentRoles.MANDOR);
         UUID mandorUserId = extractRequesterUserId(httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ShipmentResponse.fromEntity(
@@ -95,7 +93,7 @@ public class ShipmentController {
             @Valid @RequestBody AdminApprovalRequest requestBody,
             HttpServletRequest request
     ) {
-        requireRole(request, ROLE_ADMIN);
+        requireRole(request, ShipmentRoles.ADMIN);
         ShipmentStatus decision = parseStatus(requestBody.status());
         return ResponseEntity.ok(ShipmentResponse.fromEntity(
                 shipmentService.approveShipmentByAdmin(id, decision)));
@@ -131,14 +129,24 @@ public class ShipmentController {
 
     private ShipmentStatus parseStatus(String statusValue) {
         if (statusValue == null || statusValue.isBlank()) {
-            throw new IllegalArgumentException("Invalid status value");
+            throw new IllegalArgumentException(ERR_INVALID_STATUS_VALUE);
         }
-        return ShipmentStatus.valueOf(statusValue);
+        try {
+            return ShipmentStatus.valueOf(statusValue);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(ERR_INVALID_STATUS_VALUE, ex);
+        }
     }
 
     private void requireRole(HttpServletRequest request, String expectedRole) {
         if (!expectedRole.equals(extractRequesterRole(request))) {
             throw new ShipmentForbiddenException(ERR_FORBIDDEN);
         }
+    }
+
+    private List<ShipmentResponse> toResponses(List<Shipment> shipments) {
+        return shipments.stream()
+                .map(ShipmentResponse::fromEntity)
+                .toList();
     }
 }

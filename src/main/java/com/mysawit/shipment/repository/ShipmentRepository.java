@@ -1,14 +1,16 @@
 package com.mysawit.shipment.repository;
 
-import com.mysawit.shipment.model.Shipment;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.UUID;
+import com.mysawit.shipment.model.Shipment;
 
 @Repository
 public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
-    java.util.List<Shipment> findBySupirUserId(UUID supirUserId);
+    List<Shipment> findBySupirUserId(UUID supirUserId);
 
     boolean existsByItemsHarvestId(UUID harvestId);
 }

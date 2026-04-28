@@ -76,4 +76,9 @@ public class Shipment {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    public void addItem(ShipmentItem item) {
+        item.setShipment(this);
+        items.add(item);
+    }
 }

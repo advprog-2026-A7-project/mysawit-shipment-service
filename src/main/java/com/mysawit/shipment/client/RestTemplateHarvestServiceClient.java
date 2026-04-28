@@ -1,14 +1,15 @@
 package com.mysawit.shipment.client;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
@@ -25,11 +26,15 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
     private static final String HARVEST_COULD_NOT_BE_VALIDATED_PREFIX = "Harvest could not be validated: ";
     private static final String FOREMAN_HEADER = "X-Foreman-Id";
+    private static final Map<String, String> NORMALIZED_STATUSES = Map.of(
+            "PENDING", "Pending",
+            "APPROVED", "Approved",
+            "REJECTED", "Rejected"
+    );
 
     private final RestTemplate restTemplate;
     private final String harvestServiceBaseUrl;
 
-    @Autowired
     public RestTemplateHarvestServiceClient(
             RestTemplateBuilder restTemplateBuilder,
             @Value("${harvest.service.base-url:http://localhost:8083}") String harvestServiceBaseUrl,
@@ -84,7 +89,7 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     }
 
     private HarvestValidationException toHarvestValidationException(UUID harvestId, HttpStatusCodeException ex) {
-        if (ex.getStatusCode().isSameCodeAs(org.springframework.http.HttpStatus.NOT_FOUND)) {
+        if (ex.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
             return HarvestValidationException.notFound(HARVEST_NOT_FOUND_PREFIX + harvestId);
         }
         return HarvestValidationException.badRequest(HARVEST_COULD_NOT_BE_VALIDATED_PREFIX + harvestId);
@@ -95,12 +100,7 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
             return null;
         }
 
-        return switch (rawStatus) {
-            case "PENDING" -> "Pending";
-            case "APPROVED" -> "Approved";
-            case "REJECTED" -> "Rejected";
-            default -> rawStatus;
-        };
+        return NORMALIZED_STATUSES.getOrDefault(rawStatus, rawStatus);
     }
 
     private String trimTrailingSlash(String url) {

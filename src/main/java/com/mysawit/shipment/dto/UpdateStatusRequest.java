@@ -1,4 +1,9 @@
 package com.mysawit.shipment.dto;
 
-public record UpdateStatusRequest(String status) {
+import jakarta.validation.constraints.NotBlank;
+
+public record UpdateStatusRequest(
+        @NotBlank(message = "Invalid status value")
+        String status
+) {
 }

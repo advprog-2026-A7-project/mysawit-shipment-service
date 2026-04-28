@@ -2,6 +2,7 @@ package com.mysawit.shipment.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -37,6 +38,7 @@ public class ShipmentService {
     private static final String ERR_INVALID_STATUS_TRANSITION = "Invalid status transition";
     private static final String ERR_NOT_FOUND_PREFIX = "Shipment not found with id: ";
     private static final String ERR_SHIPMENT_NOT_ARRIVED = "Shipment must be TIBA before admin approval";
+    private static final String ERR_WEIGHT_EXCEEDED_FORMAT = "Total weight %s kg exceeds maximum of %.0f kg";
     private static final String REQUIRED_HARVEST_STATUS = "Approved";
     private static final double MAX_WEIGHT_KG = 400.0;
     
@@ -100,14 +102,25 @@ public class ShipmentService {
     @Transactional
     public Shipment createShipment(UUID mandorUserId, CreateShipmentRequest request) {
         double totalKg = calculateTotalKg(request);
-
-        if (totalKg > MAX_WEIGHT_KG) {
-            throw new ShipmentWeightExceededException(
-                    "Total weight " + totalKg + " kg exceeds maximum of 400 kg");
-        }
-
+        ensureWithinWeightLimit(totalKg);
         validateHarvests(mandorUserId, request);
 
+        Shipment shipment = buildShipment(mandorUserId, request, totalKg);
+        return saveShipment(shipment);
+    }
+
+    private void ensureWithinWeightLimit(double totalKg) {
+        if (totalKg > MAX_WEIGHT_KG) {
+            throw new ShipmentWeightExceededException(String.format(
+                    Locale.ROOT,
+                    ERR_WEIGHT_EXCEEDED_FORMAT,
+                    Double.toString(totalKg),
+                    MAX_WEIGHT_KG
+            ));
+        }
+    }
+
+    private Shipment buildShipment(UUID mandorUserId, CreateShipmentRequest request, double totalKg) {
         Shipment shipment = new Shipment();
         shipment.setMandorUserId(mandorUserId);
         shipment.setSupirUserId(request.supirUserId());
@@ -115,9 +128,13 @@ public class ShipmentService {
         shipment.setTotalKg(totalKg);
 
         for (CreateShipmentRequest.HarvestItem item : request.items()) {
-            shipment.getItems().add(toShipmentItem(shipment, item));
+            shipment.addItem(toShipmentItem(item));
         }
 
+        return shipment;
+    }
+
+    private Shipment saveShipment(Shipment shipment) {
         try {
             return shipmentRepository.save(shipment);
         } catch (DataIntegrityViolationException ex) {
@@ -161,11 +178,10 @@ public class ShipmentService {
         }
     }
 
-    private ShipmentItem toShipmentItem(Shipment shipment, CreateShipmentRequest.HarvestItem item) {
+    private ShipmentItem toShipmentItem(CreateShipmentRequest.HarvestItem item) {
         ShipmentItem shipmentItem = new ShipmentItem();
         shipmentItem.setHarvestId(item.harvestId());
         shipmentItem.setWeightKg(item.weightKg());
-        shipmentItem.setShipment(shipment);
         return shipmentItem;
     }
 

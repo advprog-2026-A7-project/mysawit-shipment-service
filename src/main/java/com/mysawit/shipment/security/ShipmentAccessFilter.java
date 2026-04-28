@@ -1,7 +1,6 @@
 package com.mysawit.shipment.security;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -16,7 +15,6 @@ import jakarta.servlet.http.HttpServletResponse;
 public class ShipmentAccessFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final Set<String> ALLOWED_ROLES = Set.of("SUPIR", "MANDOR", "ADMIN");
 
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -46,7 +44,7 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
         }
 
         String role = jwtTokenProvider.getRole(token);
-        if (!ALLOWED_ROLES.contains(role)) {
+        if (!ShipmentRoles.ALLOWED_ROLES.contains(role)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
             return;
         }

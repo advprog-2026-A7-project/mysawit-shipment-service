@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +63,20 @@ class ShipmentTest {
 
         assertEquals(1, shipment.getItems().size());
         assertEquals(120.0, shipment.getItems().get(0).getWeightKg());
+    }
+
+    @Test
+    void addItemStoresItemAndSetsBackReference() {
+        Shipment shipment = new Shipment();
+        ShipmentItem item = new ShipmentItem();
+        item.setHarvestId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        item.setWeightKg(120.0);
+
+        shipment.addItem(item);
+
+        assertEquals(1, shipment.getItems().size());
+        assertSame(shipment, item.getShipment());
+        assertSame(item, shipment.getItems().get(0));
     }
 
     @Test
