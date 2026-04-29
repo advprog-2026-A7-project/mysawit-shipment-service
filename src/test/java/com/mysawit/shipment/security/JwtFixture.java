@@ -34,6 +34,17 @@ public final class JwtFixture {
         return buildToken(userId, role);
     }
 
+    public static String tokenWithoutUserId(String role) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + 86_400_000);
+        return Jwts.builder()
+                .claim("role", role)
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(SIGNING_KEY)
+                .compact();
+    }
+
     public static String expiredToken(String userId, String role) {
         Date past = new Date(System.currentTimeMillis() - 100_000);
         return Jwts.builder()

@@ -1,12 +1,15 @@
 package com.mysawit.shipment.client;
 
+import java.lang.reflect.Constructor;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
@@ -141,6 +144,19 @@ class RestTemplateHarvestServiceClientTest {
                 HARVEST_SERVICE_BASE_URL,
                 ReflectionTestUtils.getField(builderClient, "harvestServiceBaseUrl")
         );
+    }
+
+    @Test
+    void springInjectionConstructorIsExplicitlyAutowired() throws NoSuchMethodException {
+        Constructor<RestTemplateHarvestServiceClient> constructor =
+                RestTemplateHarvestServiceClient.class.getConstructor(
+                        RestTemplateBuilder.class,
+                        String.class,
+                        java.time.Duration.class,
+                        java.time.Duration.class
+                );
+
+        assertTrue(constructor.isAnnotationPresent(Autowired.class));
     }
 
     @Test
