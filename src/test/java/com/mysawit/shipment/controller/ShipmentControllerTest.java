@@ -35,6 +35,9 @@ class ShipmentControllerTest {
     private static final UUID SUPIR_ID = UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222");
     private static final UUID HARVEST_A = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final String DESTINATION = "Jakarta";
+    private static final String ROLE_ADMIN = "ADMIN";
+    private static final String ROLE_MANDOR = "MANDOR";
+    private static final String ROLE_SUPIR = "SUPIR";
 
     private ShipmentService shipmentService;
     private ShipmentController shipmentController;
@@ -57,6 +60,19 @@ class ShipmentControllerTest {
     }
 
     @Test
+    void getAllShipmentsFallsBackToAllShipmentsWhenSupirUserIdIsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_SUPIR);
+        when(shipmentService.getAllShipments()).thenReturn(List.of(sampleShipment(ID_1)));
+
+        ResponseEntity<List<ShipmentResponse>> response = shipmentController.getAllShipments(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        verify(shipmentService).getAllShipments();
+    }
+
+    @Test
     void getShipmentByIdReturnsShipmentResponse() {
         Shipment shipment = sampleShipment(ID_1);
         when(shipmentService.getShipmentById(ID_1)).thenReturn(shipment);
@@ -67,6 +83,20 @@ class ShipmentControllerTest {
         assertEquals(ID_1, response.getBody().id());
         assertEquals(DESTINATION, response.getBody().destination());
         assertEquals(ShipmentStatus.MEMUAT, response.getBody().status());
+    }
+
+    @Test
+    void getShipmentByIdFallsBackToGeneralLookupWhenSupirUserIdIsMissing() {
+        Shipment shipment = sampleShipment(ID_1);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_SUPIR);
+        when(shipmentService.getShipmentById(ID_1)).thenReturn(shipment);
+
+        ResponseEntity<ShipmentResponse> response = shipmentController.getShipmentById(ID_1, request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(ID_1, response.getBody().id());
+        verify(shipmentService).getShipmentById(ID_1);
     }
 
     @Test
@@ -99,7 +129,7 @@ class ShipmentControllerTest {
 
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
         httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, MANDOR_ID);
-        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "MANDOR");
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_MANDOR);
 
         ResponseEntity<ShipmentResponse> response = shipmentController.createShipment(request, httpRequest);
 
@@ -115,7 +145,7 @@ class ShipmentControllerTest {
                 List.of(new CreateShipmentRequest.HarvestItem(HARVEST_A, 100.0)));
 
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
-        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "SUPIR");
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_SUPIR);
 
         ShipmentForbiddenException exception = assertThrows(
                 ShipmentForbiddenException.class,
@@ -158,6 +188,20 @@ class ShipmentControllerTest {
     }
 
     @Test
+    void updateShipmentStatusRejectsNullStatus() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> shipmentController.updateShipmentStatus(
+                        ID_1,
+                        new UpdateStatusRequest(null),
+                        supirRequest()
+                )
+        );
+
+        assertEquals("Invalid status value", exception.getMessage());
+    }
+
+    @Test
     void approveShipmentByAdminReturnsOkResponse() {
         AdminApprovalRequest request = new AdminApprovalRequest("ADMIN_APPROVED");
 
@@ -167,7 +211,7 @@ class ShipmentControllerTest {
                 .thenReturn(saved);
 
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
-        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "ADMIN");
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_ADMIN);
 
         ResponseEntity<ShipmentResponse> response =
                 shipmentController.approveShipmentByAdmin(ID_1, request, httpRequest);
@@ -180,7 +224,7 @@ class ShipmentControllerTest {
     @Test
     void approveShipmentByAdminRejectsUnknownStatus() {
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
-        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "ADMIN");
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_ADMIN);
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -197,7 +241,7 @@ class ShipmentControllerTest {
     private MockHttpServletRequest supirRequest() {
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
         httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, SUPIR_ID);
-        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, "SUPIR");
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_SUPIR);
         return httpRequest;
     }
 

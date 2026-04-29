@@ -40,6 +40,13 @@ class ShipmentSecurityTest {
     }
 
     @Test
+    void getShipmentsWithNonBearerAuthorizationReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get(SHIPMENTS_PATH)
+                        .header(AUTHORIZATION_HEADER, "Basic abc123"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void getShipmentsWithWrongRoleReturnsForbidden() throws Exception {
         String buruhToken = JwtFixture.tokenWithRole(SUPIR_ID.toString(), "BURUH");
 
@@ -55,6 +62,16 @@ class ShipmentSecurityTest {
 
         mockMvc.perform(get(SHIPMENTS_PATH)
                         .header(AUTHORIZATION_HEADER, BEARER_PREFIX + mandorToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getShipmentsWithAllowedRoleAndNoUserIdReturnsOk() throws Exception {
+        String tokenWithoutUserId = JwtFixture.tokenWithoutUserId("MANDOR");
+        when(shipmentService.getAllShipments()).thenReturn(List.of());
+
+        mockMvc.perform(get(SHIPMENTS_PATH)
+                        .header(AUTHORIZATION_HEADER, BEARER_PREFIX + tokenWithoutUserId))
                 .andExpect(status().isOk());
     }
 
