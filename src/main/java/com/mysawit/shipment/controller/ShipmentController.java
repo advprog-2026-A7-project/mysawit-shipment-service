@@ -8,20 +8,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/shipments")
 public class ShipmentController {
-    
+
     private final ShipmentService shipmentService;
-    
+
     public ShipmentController(ShipmentService shipmentService) {
         this.shipmentService = shipmentService;
     }
-    
+
     @GetMapping
     public ResponseEntity<List<Shipment>> getAllShipments(
             @RequestParam(required = false) Long harvestId,
@@ -36,64 +35,54 @@ public class ShipmentController {
         }
         return ResponseEntity.ok(shipments);
     }
-    
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getShipmentById(@PathVariable Long id) {
         try {
-            Shipment shipment = shipmentService.getShipmentById(id);
-            return ResponseEntity.ok(shipment);
+            return ResponseEntity.ok(shipmentService.getShipmentById(id));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return notFoundError(e);
         }
     }
-    
+
     @PostMapping
     public ResponseEntity<?> createShipment(@Valid @RequestBody ShipmentRequest request) {
         try {
-            Shipment shipment = shipmentService.createShipment(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(shipment);
+            return ResponseEntity.status(HttpStatus.CREATED).body(shipmentService.createShipment(request));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            return badRequestError(e);
         }
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateShipment(
-            @PathVariable Long id,
-            @Valid @RequestBody ShipmentRequest request) {
+    public ResponseEntity<?> updateShipment(@PathVariable Long id, @Valid @RequestBody ShipmentRequest request) {
         try {
-            Shipment shipment = shipmentService.updateShipment(id, request);
-            return ResponseEntity.ok(shipment);
+            return ResponseEntity.ok(shipmentService.updateShipment(id, request));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return notFoundError(e);
         }
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteShipment(@PathVariable Long id) {
         try {
             shipmentService.deleteShipment(id);
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Shipment deleted successfully");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of("message", "Shipment deleted successfully"));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return notFoundError(e);
         }
     }
-    
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
-        Map<String, String> health = new HashMap<>();
-        health.put("status", "UP");
-        health.put("service", "mysawit-shipment-service");
-        return ResponseEntity.ok(health);
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "mysawit-shipment-service"));
+    }
+
+    private ResponseEntity<Map<String, String>> notFoundError(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    }
+
+    private ResponseEntity<Map<String, String>> badRequestError(RuntimeException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
 }
