@@ -48,6 +48,7 @@ tasks.named('bootRun') {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'jwt.secret', 'test-secret-key-for-unit-tests-minimum-32-chars'
 }
 
 jacoco {
