@@ -1,6 +1,6 @@
 package com.mysawit.shipment.event;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,6 +10,6 @@ public record ShipmentCompletedEvent(
         UUID mandorId,
         Double totalKg,
         List<UUID> harvestIds,
-        LocalDateTime completedAt
+        OffsetDateTime completedAt
 ) {
 }

@@ -1,6 +1,7 @@
 package com.mysawit.shipment.dto;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,8 +22,8 @@ class ShipmentResponseTest {
         UUID id = UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID mandorUserId = UUID.fromString("44444444-4444-4444-4444-444444444444");
         UUID supirUserId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        LocalDateTime createdAt = LocalDateTime.of(2026, 4, 1, 9, 0);
-        LocalDateTime updatedAt = LocalDateTime.of(2026, 4, 1, 10, 0);
+        OffsetDateTime createdAt = OffsetDateTime.of(2026, 4, 1, 9, 0, 0, 0, ZoneOffset.UTC);
+        OffsetDateTime updatedAt = OffsetDateTime.of(2026, 4, 1, 10, 0, 0, 0, ZoneOffset.UTC);
 
         ShipmentItem item = new ShipmentItem();
         item.setHarvestId(UUID.fromString("22222222-2222-2222-2222-222222222222"));

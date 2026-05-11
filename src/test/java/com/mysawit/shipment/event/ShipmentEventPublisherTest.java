@@ -2,7 +2,7 @@ package com.mysawit.shipment.event;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
@@ -62,7 +62,7 @@ class ShipmentEventPublisherTest {
         assertEquals(MANDOR_ID, event.mandorId());
         assertEquals(320.0, event.totalKg());
         assertEquals(List.of(HARVEST_A, HARVEST_B), event.harvestIds());
-        assertEquals(LocalDateTime.ofInstant(COMPLETED_AT, ZoneOffset.UTC), event.completedAt());
+        assertEquals(OffsetDateTime.ofInstant(COMPLETED_AT, ZoneOffset.UTC), event.completedAt());
     }
 
     @Test

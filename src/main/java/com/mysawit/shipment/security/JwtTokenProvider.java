@@ -1,6 +1,7 @@
 package com.mysawit.shipment.security;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 import javax.crypto.SecretKey;
 
@@ -21,16 +22,20 @@ public class JwtTokenProvider {
         this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public boolean validateToken(String token) {
+    public Optional<Claims> parseClaimsOrNull(String token) {
         try {
-            Jwts.parser()
+            return Optional.of(Jwts.parser()
                     .verifyWith(signingKey)
                     .build()
-                    .parseSignedClaims(token);
-            return true;
+                    .parseSignedClaims(token)
+                    .getPayload());
         } catch (JwtException | IllegalArgumentException e) {
-            return false;
+            return Optional.empty();
         }
+    }
+
+    public boolean validateToken(String token) {
+        return parseClaimsOrNull(token).isPresent();
     }
 
     public Claims getClaims(String token) {
