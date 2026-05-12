@@ -1,11 +1,13 @@
 package com.mysawit.shipment.security;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,12 +40,14 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(BEARER_PREFIX.length());
-        if (!jwtTokenProvider.validateToken(token)) {
+        Optional<Claims> claimsOpt = jwtTokenProvider.parseClaimsOrNull(token);
+        if (claimsOpt.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
             return;
         }
+        Claims claims = claimsOpt.get();
 
-        String role = jwtTokenProvider.getRole(token);
+        String role = claims.get("role", String.class);
         if (!ShipmentRoles.ALLOWED_ROLES.contains(role)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
             return;
@@ -51,7 +55,7 @@ public class ShipmentAccessFilter extends OncePerRequestFilter {
 
         request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, role);
 
-        String userId = jwtTokenProvider.getUserId(token);
+        String userId = claims.getSubject();
         if (userId != null) {
             try {
                 request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, UUID.fromString(userId));
