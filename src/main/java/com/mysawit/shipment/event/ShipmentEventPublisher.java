@@ -1,9 +1,8 @@
 package com.mysawit.shipment.event;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +18,6 @@ public class ShipmentEventPublisher {
     private final RabbitTemplate rabbitTemplate;
     private final Clock clock;
 
-    @Autowired
     public ShipmentEventPublisher(RabbitTemplate rabbitTemplate) {
         this(rabbitTemplate, Clock.systemDefaultZone());
     }
@@ -38,7 +36,7 @@ public class ShipmentEventPublisher {
                 shipment.getItems().stream()
                         .map(ShipmentItem::getHarvestId)
                         .toList(),
-                LocalDateTime.now(clock)
+                OffsetDateTime.now(clock)
         );
 
         rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, event);

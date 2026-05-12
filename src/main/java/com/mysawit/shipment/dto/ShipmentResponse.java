@@ -1,6 +1,6 @@
 package com.mysawit.shipment.dto;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,8 +15,8 @@ public record ShipmentResponse(
         Double totalKg,
         ShipmentStatus status,
         List<ShipmentItemResponse> items,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt
 ) {
     public static ShipmentResponse fromEntity(Shipment shipment) {
         List<ShipmentItemResponse> itemResponses = shipment.getItems().stream()
