@@ -50,7 +50,7 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
         );
     }
 
-    public RestTemplateHarvestServiceClient(RestTemplate restTemplate, String harvestServiceBaseUrl) {
+    RestTemplateHarvestServiceClient(RestTemplate restTemplate, String harvestServiceBaseUrl) {
         this.restTemplate = restTemplate;
         this.harvestServiceBaseUrl = trimTrailingSlash(harvestServiceBaseUrl);
     }
