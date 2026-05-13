@@ -36,6 +36,21 @@ docker_cmd() {
   fi
 }
 
+compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  elif sudo docker compose version >/dev/null 2>&1; then
+    sudo docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    sudo docker-compose "$@"
+  else
+    log "Docker Compose is not installed; skipping monitoring stack startup"
+    return 127
+  fi
+}
+
 require_file() {
   local path="$1"
   if [ ! -f "$path" ]; then
@@ -166,6 +181,7 @@ fi
 
 require_file "$ENV_SOURCE_FILE"
 require_file "$RELEASE_DIR/Dockerfile"
+require_file "$RELEASE_DIR/docker-compose.monitoring.yml"
 if ! compgen -G "$RELEASE_DIR/build/libs/*.jar" > /dev/null; then
   log "Required JAR missing in ${RELEASE_DIR}/build/libs"
   exit 1
@@ -234,6 +250,14 @@ for attempt in $(seq 1 36); do
 done
 
 ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+cp "$RELEASE_DIR/docker-compose.monitoring.yml" "$APP_HOME/docker-compose.monitoring.yml"
+rm -rf "$APP_HOME/monitoring"
+cp -R "$RELEASE_DIR/monitoring" "$APP_HOME/monitoring"
+
+log "Starting monitoring stack"
+if ! (cd "$APP_HOME" && compose_cmd -f docker-compose.monitoring.yml up -d); then
+  log "Monitoring stack startup skipped or failed; application deploy remains successful"
+fi
 
 log "Listening sockets for port ${APP_PORT}"
 ss -ltn "( sport = :${APP_PORT} )" || true
