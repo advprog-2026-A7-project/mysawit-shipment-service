@@ -1,5 +1,6 @@
 package com.mysawit.shipment.event;
 
+import java.lang.reflect.Constructor;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -9,10 +10,12 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -80,6 +83,14 @@ class ShipmentEventPublisherTest {
         );
 
         assertNotNull(eventCaptor.getValue().completedAt());
+    }
+
+    @Test
+    void springInjectionConstructorIsExplicitlyAutowired() throws NoSuchMethodException {
+        Constructor<ShipmentEventPublisher> constructor =
+                ShipmentEventPublisher.class.getConstructor(RabbitTemplate.class);
+
+        assertTrue(constructor.isAnnotationPresent(Autowired.class));
     }
 
     private Shipment completedShipment() {
