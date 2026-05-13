@@ -3,7 +3,6 @@ name: CD - Deploy Shipment to EC2
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -145,6 +144,8 @@ jobs:
             exit 1
           fi
           cp Dockerfile release/Dockerfile
+          cp docker-compose.monitoring.yml release/docker-compose.monitoring.yml
+          cp -R monitoring release/monitoring
           install -m 644 "${jar_candidates[0]}" release/build/libs/app.jar
           cp scripts/deploy-ec2.sh release/scripts/deploy-ec2.sh
           chmod 755 release/scripts/deploy-ec2.sh
