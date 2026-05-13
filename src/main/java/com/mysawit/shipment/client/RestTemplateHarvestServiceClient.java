@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -35,6 +36,7 @@ public class RestTemplateHarvestServiceClient implements HarvestServiceClient {
     private final RestTemplate restTemplate;
     private final String harvestServiceBaseUrl;
 
+    @Autowired
     public RestTemplateHarvestServiceClient(
             RestTemplateBuilder restTemplateBuilder,
             @Value("${harvest.service.base-url:http://localhost:8083}") String harvestServiceBaseUrl,
