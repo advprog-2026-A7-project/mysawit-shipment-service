@@ -20,10 +20,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.dto.AdminApprovalRequest;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
+import com.mysawit.shipment.dto.MandorApprovalRequest;
 import com.mysawit.shipment.dto.ShipmentResponse;
 import com.mysawit.shipment.dto.UpdateStatusRequest;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.model.Shipment;
+import com.mysawit.shipment.model.WorkerPlantationAssignment;
 import com.mysawit.shipment.security.ShipmentSecurityAttributes;
 import com.mysawit.shipment.service.ShipmentService;
 
@@ -70,6 +72,45 @@ class ShipmentControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().size());
         verify(shipmentService).getAllShipments();
+    }
+
+    @Test
+    void getAllShipmentsUsesAdminFilters() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_ADMIN);
+        when(shipmentService.getShipmentsForAdmin("Mandor", null, ShipmentStatus.MANDOR_APPROVED))
+                .thenReturn(List.of(sampleShipment(ID_1)));
+
+        ResponseEntity<List<ShipmentResponse>> response = shipmentController.getAllShipments(
+                "Mandor",
+                null,
+                null,
+                "MANDOR_APPROVED",
+                null,
+                request
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        verify(shipmentService).getShipmentsForAdmin("Mandor", null, ShipmentStatus.MANDOR_APPROVED);
+    }
+
+    @Test
+    void getAvailableSupirsReturnsSamePlantationSupirs() {
+        WorkerPlantationAssignment assignment = new WorkerPlantationAssignment();
+        assignment.setUserId(SUPIR_ID);
+        assignment.setName("Supir One");
+        assignment.setPlantationId("plantation-1");
+        when(shipmentService.getSupirsForMandor(MANDOR_ID, "Supir")).thenReturn(List.of(assignment));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, MANDOR_ID);
+        request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_MANDOR);
+
+        ResponseEntity<?> response = shipmentController.getAvailableSupirs("Supir", request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(shipmentService).getSupirsForMandor(MANDOR_ID, "Supir");
     }
 
     @Test
@@ -207,7 +248,7 @@ class ShipmentControllerTest {
 
         Shipment saved = sampleShipment(ID_1);
         saved.setStatus(ShipmentStatus.ADMIN_APPROVED);
-        when(shipmentService.approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED))
+        when(shipmentService.approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED, null, null))
                 .thenReturn(saved);
 
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
@@ -218,7 +259,7 @@ class ShipmentControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(ShipmentStatus.ADMIN_APPROVED, response.getBody().status());
-        verify(shipmentService).approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED);
+        verify(shipmentService).approveShipmentByAdmin(ID_1, ShipmentStatus.ADMIN_APPROVED, null, null);
     }
 
     @Test
@@ -236,6 +277,27 @@ class ShipmentControllerTest {
         );
 
         assertEquals("Invalid status value", exception.getMessage());
+    }
+
+    @Test
+    void approveShipmentByMandorReturnsOkResponse() {
+        MandorApprovalRequest request = new MandorApprovalRequest("MANDOR_APPROVED", null);
+
+        Shipment saved = sampleShipment(ID_1);
+        saved.setStatus(ShipmentStatus.MANDOR_APPROVED);
+        when(shipmentService.approveShipmentByMandor(ID_1, MANDOR_ID, ShipmentStatus.MANDOR_APPROVED, null))
+                .thenReturn(saved);
+
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_USER_ID, MANDOR_ID);
+        httpRequest.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_MANDOR);
+
+        ResponseEntity<ShipmentResponse> response =
+                shipmentController.approveShipmentByMandor(ID_1, request, httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(ShipmentStatus.MANDOR_APPROVED, response.getBody().status());
+        verify(shipmentService).approveShipmentByMandor(ID_1, MANDOR_ID, ShipmentStatus.MANDOR_APPROVED, null);
     }
 
     private MockHttpServletRequest supirRequest() {

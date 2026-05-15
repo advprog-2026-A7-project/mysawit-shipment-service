@@ -1,9 +1,11 @@
 package com.mysawit.shipment.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,12 +14,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.dto.AdminApprovalRequest;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
+import com.mysawit.shipment.dto.MandorApprovalRequest;
 import com.mysawit.shipment.dto.ShipmentResponse;
+import com.mysawit.shipment.dto.SupirAssignmentResponse;
 import com.mysawit.shipment.dto.UpdateStatusRequest;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.model.Shipment;
@@ -42,13 +47,58 @@ public class ShipmentController {
     }
     
     @GetMapping
-    public ResponseEntity<List<ShipmentResponse>> getAllShipments(HttpServletRequest request) {
+    public ResponseEntity<List<ShipmentResponse>> getAllShipments(
+            @RequestParam(required = false) String mandorName,
+            @RequestParam(required = false) String supirName,
+            @RequestParam(required = false) UUID supirUserId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date,
+            HttpServletRequest request
+    ) {
         String role = extractRequesterRole(request);
         UUID requesterUserId = extractRequesterUserId(request);
         if (ShipmentRoles.SUPIR.equals(role) && requesterUserId != null) {
-            return ResponseEntity.ok(toResponses(shipmentService.getShipmentsBySupirUserId(requesterUserId)));
+            return ResponseEntity.ok(toResponses(shipmentService.getShipmentsBySupirUserId(
+                    requesterUserId,
+                    date,
+                    parseOptionalStatus(status)
+            )));
+        }
+        if (ShipmentRoles.MANDOR.equals(role) && requesterUserId != null) {
+            return ResponseEntity.ok(toResponses(shipmentService.getShipmentsByMandorUserId(
+                    requesterUserId,
+                    supirUserId,
+                    supirName,
+                    date,
+                    parseOptionalStatus(status)
+            )));
+        }
+        if (ShipmentRoles.ADMIN.equals(role)) {
+            return ResponseEntity.ok(toResponses(shipmentService.getShipmentsForAdmin(
+                    mandorName,
+                    date,
+                    parseOptionalStatus(status)
+            )));
         }
         return ResponseEntity.ok(toResponses(shipmentService.getAllShipments()));
+    }
+
+    public ResponseEntity<List<ShipmentResponse>> getAllShipments(HttpServletRequest request) {
+        return getAllShipments(null, null, null, null, null, request);
+    }
+
+    @GetMapping("/available-supirs")
+    public ResponseEntity<List<SupirAssignmentResponse>> getAvailableSupirs(
+            @RequestParam(required = false) String name,
+            HttpServletRequest request
+    ) {
+        requireRole(request, ShipmentRoles.MANDOR);
+        UUID mandorUserId = extractRequesterUserId(request);
+        return ResponseEntity.ok(shipmentService.getSupirsForMandor(mandorUserId, name).stream()
+                .map(SupirAssignmentResponse::fromEntity)
+                .toList());
     }
     
     @GetMapping("/{id}")
@@ -96,7 +146,30 @@ public class ShipmentController {
         requireRole(request, ShipmentRoles.ADMIN);
         ShipmentStatus decision = parseStatus(requestBody.status());
         return ResponseEntity.ok(ShipmentResponse.fromEntity(
-                shipmentService.approveShipmentByAdmin(id, decision)));
+                shipmentService.approveShipmentByAdmin(
+                        id,
+                        decision,
+                        requestBody.rejectionReason(),
+                        requestBody.kgAccepted()
+                )));
+    }
+
+    @PatchMapping("/{id}/mandor-approval")
+    public ResponseEntity<ShipmentResponse> approveShipmentByMandor(
+            @PathVariable UUID id,
+            @Valid @RequestBody MandorApprovalRequest requestBody,
+            HttpServletRequest request
+    ) {
+        requireRole(request, ShipmentRoles.MANDOR);
+        UUID requesterUserId = extractRequesterUserId(request);
+        ShipmentStatus decision = parseStatus(requestBody.status());
+        return ResponseEntity.ok(ShipmentResponse.fromEntity(
+                shipmentService.approveShipmentByMandor(
+                        id,
+                        requesterUserId,
+                        decision,
+                        requestBody.rejectionReason()
+                )));
     }
 
     @GetMapping("/health")
@@ -136,6 +209,13 @@ public class ShipmentController {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(ERR_INVALID_STATUS_VALUE, ex);
         }
+    }
+
+    private ShipmentStatus parseOptionalStatus(String statusValue) {
+        if (statusValue == null || statusValue.isBlank()) {
+            return null;
+        }
+        return parseStatus(statusValue);
     }
 
     private void requireRole(HttpServletRequest request, String expectedRole) {

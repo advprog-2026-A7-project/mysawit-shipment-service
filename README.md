@@ -18,6 +18,36 @@ Quick check:
 curl http://localhost:8084/actuator/health
 ```
 
+## Shipment-Only FE Test
+For temporary local testing from `mysawit-web` without running Identity, Harvest,
+Plantation, Payroll, or Notification services:
+
+1. Set shipment `.env`:
+
+```bash
+SPRING_PROFILES_ACTIVE=local
+SPRING_DATASOURCE_URL=jdbc:postgresql://db.ewfaurlyroqvwrtdyfot.supabase.co:5432/postgres?sslmode=require
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=PASTE_SUPABASE_PASSWORD_HERE
+SHIPMENT_EVENTS_ENABLED=false
+```
+
+2. Start shipment once so the local profile can create/update the shipment tables:
+
+```bash
+./gradlew bootRun
+```
+
+3. Seed the local shipment read models:
+
+```bash
+PGPASSWORD="$SPRING_DATASOURCE_PASSWORD" psql \
+  "host=db.ewfaurlyroqvwrtdyfot.supabase.co port=5432 dbname=postgres user=postgres sslmode=require" \
+  -f dev/shipment-local-seed.sql
+```
+
+The seed IDs match the dev role buttons in the frontend shipment page.
+
 ## OpenAPI Skeleton
 - File: `src/main/resources/openapi/shipment-api.yaml`
 - Contains milestone-level shipment endpoint list and minimal request/response schemas.
