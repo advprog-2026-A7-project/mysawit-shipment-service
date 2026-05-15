@@ -33,6 +33,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          CLOUDAMQP_URL: ${{ secrets.CLOUDAMQP_URL }}
         run: |
           set -euo pipefail
 
@@ -45,6 +46,7 @@ jobs:
             SPRING_DATASOURCE_PASSWORD
             JWT_SECRET
             CORS_ORIGINS
+            CLOUDAMQP_URL
           )
 
           missing=()
@@ -113,6 +115,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          CLOUDAMQP_URL: ${{ secrets.CLOUDAMQP_URL }}
         run: |
           set -euo pipefail
           sanitize_single_line() {
@@ -132,6 +135,7 @@ jobs:
           sanitize_single_line "JWT_SECRET" "$JWT_SECRET"
           sanitize_single_line "JWT_EXPIRATION" "$JWT_EXPIRATION"
           sanitize_single_line "CORS_ORIGINS" "$CORS_ORIGINS"
+          sanitize_single_line "CLOUDAMQP_URL" "$CLOUDAMQP_URL"
           sanitize_single_line "JAVA_OPTS" "$JAVA_OPTS"
           sanitize_single_line "JAVA_TOOL_OPTIONS" "$JAVA_TOOL_OPTIONS"
 
@@ -159,6 +163,7 @@ jobs:
             printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
             printf 'JWT_EXPIRATION=%s\n' "$JWT_EXPIRATION"
             printf 'CORS_ORIGINS=%s\n' "$CORS_ORIGINS"
+            printf 'CLOUDAMQP_URL=%s\n' "$CLOUDAMQP_URL"
             printf 'JAVA_OPTS=%s\n' "$JAVA_OPTS"
             printf 'JAVA_TOOL_OPTIONS=%s\n' "$JAVA_TOOL_OPTIONS"
           } > release/.env.deploy
