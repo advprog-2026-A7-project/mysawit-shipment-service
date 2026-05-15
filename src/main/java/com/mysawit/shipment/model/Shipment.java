@@ -35,14 +35,29 @@ public class Shipment {
     @Column(name = "mandor_user_id", nullable = false)
     private UUID mandorUserId;
 
+    @Column(name = "mandor_name", length = 100)
+    private String mandorName;
+
     @Column(name = "supir_user_id", nullable = false)
     private UUID supirUserId;
+
+    @Column(name = "supir_name", length = 100)
+    private String supirName;
+
+    @Column(name = "plantation_id", nullable = false, length = 64)
+    private String plantationId;
     
     @Column(nullable = false)
     private String destination;
     
     @Column(name = "total_kg", nullable = false)
     private Double totalKg;
+
+    @Column(name = "kg_accepted")
+    private Double kgAccepted;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -55,6 +70,12 @@ public class Shipment {
     
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    @Column(name = "mandor_reviewed_at")
+    private OffsetDateTime mandorReviewedAt;
+
+    @Column(name = "admin_reviewed_at")
+    private OffsetDateTime adminReviewedAt;
     
     @PrePersist
     protected void onCreate() {

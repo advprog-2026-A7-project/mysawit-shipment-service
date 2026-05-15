@@ -23,11 +23,47 @@ paths:
   /api/shipments:
     get:
       tags: [Shipments]
-      summary: List shipments for authenticated SUPIR
-      description: Returns only shipments owned by authenticated user (claim userId).
+      summary: List shipments by authenticated role
+      description: >
+        SUPIR receives only their own shipments and can filter by date/status.
+        MANDOR receives shipments they created and can filter by supir/date/status.
+        ADMIN receives MANDOR_APPROVED shipments by default and can filter by mandor name/date/status.
       operationId: listMyShipments
       security:
         - bearerAuth: []
+      parameters:
+        - name: mandorName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Admin-only Mandor name search.
+        - name: supirName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Mandor-only Supir name search.
+        - name: supirUserId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Mandor-only Supir profile filter.
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ShipmentStatus'
+          description: Optional status filter. Admin defaults to MANDOR_APPROVED when omitted.
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Optional shipment creation date filter.
       responses:
         "200":
           description: List of owned shipments
@@ -47,7 +83,7 @@ paths:
                 unauthorized:
                   value: { error: "Unauthorized" }
         "403":
-          description: Wrong role (not SUPIR)
+          description: Wrong role or forbidden access
           content:
             application/json:
               schema:
@@ -60,9 +96,9 @@ paths:
       tags: [Shipments]
       summary: Create a new shipment (MANDOR only)
       description: >
-        Mandor creates a shipment by selecting harvests whose status is exactly Approved
-        and assigning a supir. Total weight must not exceed 400 kg, and harvests cannot
-        be claimed by another shipment.
+        Mandor creates a shipment by selecting locally replicated harvests whose status is
+        APPROVED and assigning a supir from the same plantation. Total weight must not
+        exceed 400 kg, and harvests cannot be claimed by another shipment.
       operationId: createShipment
       security:
         - bearerAuth: []
@@ -144,6 +180,42 @@ paths:
                     error: HARVEST_SERVICE_UNAVAILABLE
                     message: Harvest service is unavailable
 
+  /api/shipments/available-supirs:
+    get:
+      tags: [Shipments]
+      summary: List same-plantation supirs for authenticated MANDOR
+      operationId: listAvailableSupirs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional Supir name search.
+      responses:
+        "200":
+          description: Supirs assigned to the same plantation as the authenticated Mandor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupirAssignmentResponse'
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role (not MANDOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/shipments/{id}:
     get:
       tags: [Shipments]
@@ -201,7 +273,7 @@ paths:
       description: >
         Allowed transitions only:
         MEMUAT -> MENGIRIM -> TIBA.
-        Skipping is forbidden and TIBA is terminal.
+        Skipping is forbidden. Once TIBA, the shipment is ready for Mandor approval.
       operationId: updateShipmentStatus
       security:
         - bearerAuth: []
@@ -266,13 +338,77 @@ paths:
                     error: INVALID_STATUS_TRANSITION
                     message: Invalid status transition
 
+  /api/shipments/{id}/mandor-approval:
+    patch:
+      tags: [Shipments]
+      summary: Mandor approval for arrived shipment
+      description: >
+        Mandor approval is only allowed after the shipment has reached TIBA.
+        Valid decisions are MANDOR_APPROVED and MANDOR_REJECTED. Rejection requires a reason.
+        MANDOR_APPROVED publishes a shipment.approved-by-mandor event for Supir payroll.
+      operationId: approveShipmentByMandor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MandorApprovalRequest'
+      responses:
+        "200":
+          description: Mandor approval decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentResponse'
+        "400":
+          description: Invalid approval decision payload or missing rejection reason
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Wrong role (not MANDOR) or not owner Mandor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Shipment has not reached TIBA yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/shipments/{id}/admin-approval:
     patch:
       tags: [Shipments]
-      summary: Admin approval for completed shipment
+      summary: Admin approval for Mandor-approved shipment
       description: >
-        Admin approval is only allowed after the shipment has reached TIBA.
-        Valid decisions are ADMIN_APPROVED and PARTIALLY_REJECTED.
+        Admin approval is only allowed after MANDOR_APPROVED.
+        Valid decisions are ADMIN_APPROVED, ADMIN_REJECTED, and PARTIALLY_REJECTED.
+        Rejection requires a reason. Partial rejection requires kgAccepted and a reason.
+        ADMIN_APPROVED and PARTIALLY_REJECTED publish shipment.approved-by-admin for Mandor payroll.
       operationId: approveShipmentByAdmin
       security:
         - bearerAuth: []
@@ -307,6 +443,10 @@ paths:
                   value:
                     error: BAD_REQUEST
                     message: Invalid admin approval decision
+                missingAcceptedKg:
+                  value:
+                    error: BAD_REQUEST
+                    message: Accepted kg is required for partial rejection
         "401":
           description: Missing or invalid JWT
           content:
@@ -331,7 +471,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         "409":
-          description: Shipment has not reached TIBA yet
+          description: Shipment has not been approved by Mandor yet
           content:
             application/json:
               schema:
@@ -340,7 +480,7 @@ paths:
                 notArrived:
                   value:
                     error: INVALID_STATUS_TRANSITION
-                    message: Shipment must be TIBA before admin approval
+                    message: Shipment must be approved by Mandor before admin approval
 
   /api/shipments/health:
     get:
@@ -366,7 +506,7 @@ components:
   schemas:
     ShipmentStatus:
       type: string
-      enum: [MEMUAT, MENGIRIM, TIBA, ADMIN_APPROVED, PARTIALLY_REJECTED]
+      enum: [MEMUAT, MENGIRIM, TIBA, MANDOR_APPROVED, MANDOR_REJECTED, ADMIN_APPROVED, ADMIN_REJECTED, PARTIALLY_REJECTED]
 
     ShipmentResponse:
       type: object
@@ -378,17 +518,30 @@ components:
           type: string
           format: uuid
           description: Mandor who created the shipment.
+        mandorName:
+          type: string
         supirUserId:
           type: string
           format: uuid
           description: Owner userId from JWT claim.
+        supirName:
+          type: string
         destination:
+          type: string
+        plantationId:
           type: string
         totalKg:
           type: number
           format: double
           minimum: 0
           exclusiveMinimum: true
+        kgAccepted:
+          type: number
+          format: double
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
         status:
           $ref: '#/components/schemas/ShipmentStatus'
         items:
@@ -401,11 +554,20 @@ components:
         updatedAt:
           type: string
           format: date-time
+        mandorReviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        adminReviewedAt:
+          type: string
+          format: date-time
+          nullable: true
       required:
         - id
         - mandorUserId
         - supirUserId
         - destination
+        - plantationId
         - totalKg
         - status
         - items
@@ -440,9 +602,42 @@ components:
       properties:
         status:
           type: string
-          enum: [ADMIN_APPROVED, PARTIALLY_REJECTED]
+          enum: [ADMIN_APPROVED, ADMIN_REJECTED, PARTIALLY_REJECTED]
+        rejectionReason:
+          type: string
+          description: Required for ADMIN_REJECTED and PARTIALLY_REJECTED.
+        kgAccepted:
+          type: number
+          format: double
+          description: Required for PARTIALLY_REJECTED.
       required:
         - status
+
+    MandorApprovalRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [MANDOR_APPROVED, MANDOR_REJECTED]
+        rejectionReason:
+          type: string
+          description: Required for MANDOR_REJECTED.
+      required:
+        - status
+
+    SupirAssignmentResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        plantationId:
+          type: string
+      required:
+        - userId
+        - plantationId
 
     CreateShipmentRequest:
       type: object

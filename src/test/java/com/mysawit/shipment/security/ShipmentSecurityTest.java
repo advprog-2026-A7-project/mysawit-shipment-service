@@ -58,7 +58,7 @@ class ShipmentSecurityTest {
     @Test
     void getShipmentsWithMandorTokenReturnsOk() throws Exception {
         String mandorToken = JwtFixture.mandorToken(SUPIR_ID.toString());
-        when(shipmentService.getAllShipments()).thenReturn(List.of());
+        when(shipmentService.getShipmentsByMandorUserId(SUPIR_ID, null, null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get(SHIPMENTS_PATH)
                         .header(AUTHORIZATION_HEADER, BEARER_PREFIX + mandorToken))
@@ -124,7 +124,7 @@ class ShipmentSecurityTest {
     @Test
     void filterSetsRoleAttributeForMandorToken() throws Exception {
         String mandorToken = JwtFixture.mandorToken(SUPIR_ID.toString());
-        when(shipmentService.getAllShipments()).thenReturn(List.of());
+        when(shipmentService.getShipmentsByMandorUserId(SUPIR_ID, null, null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get(SHIPMENTS_PATH)
                         .header(AUTHORIZATION_HEADER, BEARER_PREFIX + mandorToken))

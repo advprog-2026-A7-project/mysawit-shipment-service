@@ -45,7 +45,7 @@ class ShipmentOwnershipListTest {
         owned.setTotalKg(120.0);
         owned.setStatus(ShipmentStatus.MEMUAT);
 
-        when(shipmentService.getShipmentsBySupirUserId(SUPIR_ID)).thenReturn(List.of(owned));
+        when(shipmentService.getShipmentsBySupirUserId(SUPIR_ID, null, null)).thenReturn(List.of(owned));
 
         String supirToken = JwtFixture.supirToken(SUPIR_ID.toString());
 
@@ -54,6 +54,6 @@ class ShipmentOwnershipListTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].supirUserId").value(SUPIR_ID.toString()));
 
-        verify(shipmentService).getShipmentsBySupirUserId(SUPIR_ID);
+        verify(shipmentService).getShipmentsBySupirUserId(SUPIR_ID, null, null);
     }
 }
