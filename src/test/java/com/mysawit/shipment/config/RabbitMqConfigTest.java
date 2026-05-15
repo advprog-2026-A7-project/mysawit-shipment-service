@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.Queue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.TopicExchange;
@@ -27,6 +29,37 @@ class RabbitMqConfigTest {
 
         assertNotNull(exchange);
         assertEquals(RabbitMqConfig.EXCHANGE, exchange.getName());
+    }
+
+    @Test
+    void integrationExchangesReturnTopicExchangesWithCorrectNames() {
+        assertEquals(RabbitMqConfig.HARVEST_EXCHANGE, rabbitMqConfig.harvestExchange().getName());
+        assertEquals(RabbitMqConfig.PLANTATION_EXCHANGE, rabbitMqConfig.plantationExchange().getName());
+        assertEquals(RabbitMqConfig.NOTIFICATION_EXCHANGE, rabbitMqConfig.notificationExchange().getName());
+    }
+
+    @Test
+    void queuesReturnDurableQueuesWithCorrectNames() {
+        Queue harvestQueue = rabbitMqConfig.harvestEventsQueue();
+        Queue assignmentQueue = rabbitMqConfig.plantationAssignmentQueue();
+
+        assertEquals(RabbitMqConfig.HARVEST_EVENTS_QUEUE, harvestQueue.getName());
+        assertEquals(RabbitMqConfig.PLANTATION_ASSIGNMENT_QUEUE, assignmentQueue.getName());
+    }
+
+    @Test
+    void bindingsUseExpectedRoutingKeys() {
+        Binding harvestBinding = rabbitMqConfig.harvestEventsBinding(
+                rabbitMqConfig.harvestEventsQueue(),
+                rabbitMqConfig.harvestExchange()
+        );
+        Binding assignmentBinding = rabbitMqConfig.plantationAssignmentBinding(
+                rabbitMqConfig.plantationAssignmentQueue(),
+                rabbitMqConfig.plantationExchange()
+        );
+
+        assertEquals(RabbitMqConfig.HARVEST_EVENTS_ROUTING_KEY, harvestBinding.getRoutingKey());
+        assertEquals(RabbitMqConfig.PLANTATION_ASSIGNMENT_ROUTING_KEY, assignmentBinding.getRoutingKey());
     }
 
     @Test

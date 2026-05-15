@@ -35,7 +35,8 @@ class ShipmentAdminApprovalTest {
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String APPROVED_BODY = "{\"status\":\"ADMIN_APPROVED\"}";
-    private static final String PARTIALLY_REJECTED_BODY = "{\"status\":\"PARTIALLY_REJECTED\"}";
+    private static final String PARTIALLY_REJECTED_BODY =
+            "{\"status\":\"PARTIALLY_REJECTED\",\"rejectionReason\":\"missing fruit\",\"kgAccepted\":80.0}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,7 +47,7 @@ class ShipmentAdminApprovalTest {
     @Test
     void patchAdminApprovalWithAdminTokenReturnsOk() throws Exception {
         Shipment approved = shipmentWithStatus(ShipmentStatus.ADMIN_APPROVED);
-        when(shipmentService.approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.ADMIN_APPROVED))
+        when(shipmentService.approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.ADMIN_APPROVED, null, null))
                 .thenReturn(approved);
 
         String adminToken = JwtFixture.adminToken(ADMIN_ID.toString());
@@ -55,13 +56,18 @@ class ShipmentAdminApprovalTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ADMIN_APPROVED"));
 
-        verify(shipmentService).approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.ADMIN_APPROVED);
+        verify(shipmentService).approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.ADMIN_APPROVED, null, null);
     }
 
     @Test
     void patchAdminApprovalAllowsPartialRejectDecision() throws Exception {
         Shipment rejected = shipmentWithStatus(ShipmentStatus.PARTIALLY_REJECTED);
-        when(shipmentService.approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.PARTIALLY_REJECTED))
+        when(shipmentService.approveShipmentByAdmin(
+                SHIPMENT_ID,
+                ShipmentStatus.PARTIALLY_REJECTED,
+                "missing fruit",
+                80.0
+        ))
                 .thenReturn(rejected);
 
         String adminToken = JwtFixture.adminToken(ADMIN_ID.toString());
@@ -70,7 +76,12 @@ class ShipmentAdminApprovalTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PARTIALLY_REJECTED"));
 
-        verify(shipmentService).approveShipmentByAdmin(SHIPMENT_ID, ShipmentStatus.PARTIALLY_REJECTED);
+        verify(shipmentService).approveShipmentByAdmin(
+                SHIPMENT_ID,
+                ShipmentStatus.PARTIALLY_REJECTED,
+                "missing fruit",
+                80.0
+        );
     }
 
     @Test

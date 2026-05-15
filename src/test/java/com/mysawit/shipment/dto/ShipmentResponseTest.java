@@ -31,9 +31,14 @@ class ShipmentResponseTest {
 
         shipment.setId(id);
         shipment.setMandorUserId(mandorUserId);
+        shipment.setMandorName("Mandor One");
         shipment.setSupirUserId(supirUserId);
+        shipment.setSupirName("Supir One");
         shipment.setDestination("Jakarta");
+        shipment.setPlantationId("plantation-1");
         shipment.setTotalKg(150.5);
+        shipment.setKgAccepted(120.0);
+        shipment.setRejectionReason("missing fruit");
         shipment.setStatus(ShipmentStatus.MENGIRIM);
         shipment.setItems(List.of(item));
         shipment.setCreatedAt(createdAt);
@@ -43,9 +48,14 @@ class ShipmentResponseTest {
 
         assertEquals(id, response.id());
         assertEquals(mandorUserId, response.mandorUserId());
+        assertEquals("Mandor One", response.mandorName());
         assertEquals(supirUserId, response.supirUserId());
+        assertEquals("Supir One", response.supirName());
         assertEquals("Jakarta", response.destination());
+        assertEquals("plantation-1", response.plantationId());
         assertEquals(150.5, response.totalKg());
+        assertEquals(120.0, response.kgAccepted());
+        assertEquals("missing fruit", response.rejectionReason());
         assertEquals(ShipmentStatus.MENGIRIM, response.status());
         assertEquals(1, response.items().size());
         assertEquals(UUID.fromString("22222222-2222-2222-2222-222222222222"),

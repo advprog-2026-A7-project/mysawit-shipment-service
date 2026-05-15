@@ -6,6 +6,12 @@ public interface HarvestServiceClient {
 
     HarvestDetails getHarvestById(UUID foremanId, UUID harvestId);
 
-    record HarvestDetails(UUID id, String status) {
+    record HarvestDetails(
+            UUID id,
+            UUID mandorUserId,
+            String plantationId,
+            String status,
+            Double weightKg
+    ) {
     }
 }

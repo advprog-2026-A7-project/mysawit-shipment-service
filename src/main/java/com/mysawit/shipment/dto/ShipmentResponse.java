@@ -10,13 +10,20 @@ import com.mysawit.shipment.model.Shipment;
 public record ShipmentResponse(
         UUID id,
         UUID mandorUserId,
+        String mandorName,
         UUID supirUserId,
+        String supirName,
         String destination,
+        String plantationId,
         Double totalKg,
+        Double kgAccepted,
+        String rejectionReason,
         ShipmentStatus status,
         List<ShipmentItemResponse> items,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        OffsetDateTime mandorReviewedAt,
+        OffsetDateTime adminReviewedAt
 ) {
     public static ShipmentResponse fromEntity(Shipment shipment) {
         List<ShipmentItemResponse> itemResponses = shipment.getItems().stream()
@@ -25,13 +32,20 @@ public record ShipmentResponse(
         return new ShipmentResponse(
                 shipment.getId(),
                 shipment.getMandorUserId(),
+                shipment.getMandorName(),
                 shipment.getSupirUserId(),
+                shipment.getSupirName(),
                 shipment.getDestination(),
+                shipment.getPlantationId(),
                 shipment.getTotalKg(),
+                shipment.getKgAccepted(),
+                shipment.getRejectionReason(),
                 shipment.getStatus(),
                 itemResponses,
                 shipment.getCreatedAt(),
-                shipment.getUpdatedAt()
+                shipment.getUpdatedAt(),
+                shipment.getMandorReviewedAt(),
+                shipment.getAdminReviewedAt()
         );
     }
 }
