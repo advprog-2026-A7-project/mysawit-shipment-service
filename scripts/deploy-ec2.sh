@@ -212,6 +212,13 @@ print_ipv6_state
 log "Resolving IPv6 records for ${DB_HOST}"
 resolve_ipv6_records "$DB_HOST"
 
+IPV6_RECORD=$(resolve_ipv6_records "$DB_HOST" | head -n 1)
+EXTRA_DOCKER_ARGS=""
+if [ -n "$IPV6_RECORD" ]; then
+  log "Forcing Java to use IPv6 by mapping $DB_HOST to $IPV6_RECORD in Docker"
+  EXTRA_DOCKER_ARGS="--add-host $DB_HOST:$IPV6_RECORD"
+fi
+
 log "Checking IPv6 TCP connectivity to ${DB_HOST}:5432"
 check_tcp_ipv6 "$DB_HOST" 5432
 
@@ -227,6 +234,7 @@ docker_cmd rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 docker_cmd run -d \
   --name "$CONTAINER_NAME" \
   --network host \
+  $EXTRA_DOCKER_ARGS \
   --env-file "$RUNTIME_ENV_FILE" \
   --restart unless-stopped \
   --log-opt max-size=10m \
