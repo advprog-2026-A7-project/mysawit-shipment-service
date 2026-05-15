@@ -80,6 +80,21 @@ extract_db_host() {
   printf '%s\n' "${authority%%:*}"
 }
 
+extract_db_port() {
+  local jdbc_url="$1"
+  local authority="${jdbc_url#jdbc:postgresql://}"
+  authority="${authority%%/*}"
+  authority="${authority%%\?*}"
+  authority="${authority##*@}"
+  if [[ "$authority" == *:* ]] && [[ "$authority" != \[*\]:* ]]; then
+    printf '%s\n' "${authority##*:}"
+  elif [[ "$authority" == \[*\]:* ]]; then
+    printf '%s\n' "${authority##*:}"
+  else
+    printf '5432\n'
+  fi
+}
+
 print_ipv6_state() {
   log "EC2 IPv6 addresses"
   ip -6 addr show scope global || true
@@ -197,6 +212,7 @@ mv "$RUNTIME_ENV_FILE.new" "$RUNTIME_ENV_FILE"
 
 DB_JDBC_URL="$(env_value SPRING_DATASOURCE_URL)"
 DB_HOST="$(extract_db_host "$DB_JDBC_URL")"
+DB_PORT="$(extract_db_port "$DB_JDBC_URL")"
 
 if [ -z "$DB_HOST" ]; then
   log "Could not parse DB host from SPRING_DATASOURCE_URL"
@@ -210,17 +226,17 @@ log "Derived Supabase DB host: ${DB_HOST}"
 print_ipv6_state
 
 log "Resolving IPv6 records for ${DB_HOST}"
-resolve_ipv6_records "$DB_HOST"
-
-IPV6_RECORD=$(resolve_ipv6_records "$DB_HOST" | head -n 1)
+IPV6_RECORD=$(resolve_ipv6_records "$DB_HOST" | head -n 1 || true)
 EXTRA_DOCKER_ARGS=""
+
 if [ -n "$IPV6_RECORD" ]; then
   log "Forcing Java to use IPv6 by mapping $DB_HOST to $IPV6_RECORD in Docker"
   EXTRA_DOCKER_ARGS="--add-host $DB_HOST:$IPV6_RECORD"
+  log "Checking IPv6 TCP connectivity to ${DB_HOST}:${DB_PORT}"
+  check_tcp_ipv6 "$DB_HOST" "$DB_PORT" || true
+else
+  log "No IPv6 record found. Assuming IPv4 NAT64 or dual-stack."
 fi
-
-log "Checking IPv6 TCP connectivity to ${DB_HOST}:5432"
-check_tcp_ipv6 "$DB_HOST" 5432
 
 docker_cmd build --pull \
   --label "com.mysawit.service=${APP_NAME}" \
