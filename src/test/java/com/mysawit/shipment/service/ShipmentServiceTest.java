@@ -112,9 +112,9 @@ class ShipmentServiceTest {
         LocalDate date = LocalDate.of(2026, 4, 14);
         OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
         when(shipmentRepository.findWithFilters(
-                OWNER_42,
+                OWNER_42.toString(),
                 null,
-                ShipmentStatus.MANDOR_REJECTED,
+                ShipmentStatus.MANDOR_REJECTED.name(),
                 null,
                 null,
                 from,
@@ -133,9 +133,9 @@ class ShipmentServiceTest {
     @Test
     void getShipmentsByMandorUserIdWithFiltersTrimsBlankSupirName() {
         when(shipmentRepository.findWithFilters(
-                OWNER_42,
-                MANDOR_ID,
-                ShipmentStatus.MEMUAT,
+                OWNER_42.toString(),
+                MANDOR_ID.toString(),
+                ShipmentStatus.MEMUAT.name(),
                 null,
                 null,
                 null,
@@ -158,7 +158,7 @@ class ShipmentServiceTest {
         when(shipmentRepository.findWithFilters(
                 null,
                 null,
-                ShipmentStatus.MANDOR_APPROVED,
+                ShipmentStatus.MANDOR_APPROVED.name(),
                 "Mandor",
                 null,
                 null,
@@ -175,7 +175,7 @@ class ShipmentServiceTest {
         when(shipmentRepository.findWithFilters(
                 null,
                 null,
-                ShipmentStatus.MANDOR_APPROVED,
+                ShipmentStatus.MANDOR_APPROVED.name(),
                 null,
                 null,
                 null,
