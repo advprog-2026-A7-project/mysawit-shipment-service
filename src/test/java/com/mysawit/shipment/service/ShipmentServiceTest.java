@@ -131,6 +131,23 @@ class ShipmentServiceTest {
     }
 
     @Test
+    void getShipmentsBySupirUserIdWithFiltersAllowsMissingFilters() {
+        when(shipmentRepository.findWithFilters(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        )).thenReturn(List.of(new Shipment()));
+
+        List<Shipment> result = shipmentService.getShipmentsBySupirUserId(null, null, null);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
     void getShipmentsByMandorUserIdWithFiltersTrimsBlankSupirName() {
         when(shipmentRepository.findWithFilters(
                 OWNER_42.toString(),
@@ -148,6 +165,29 @@ class ShipmentServiceTest {
                 " ",
                 null,
                 ShipmentStatus.MEMUAT
+        );
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getShipmentsByMandorUserIdWithFiltersAllowsMissingIdsAndStatus() {
+        when(shipmentRepository.findWithFilters(
+                null,
+                null,
+                null,
+                null,
+                "Supir",
+                null,
+                null
+        )).thenReturn(List.of(new Shipment()));
+
+        List<Shipment> result = shipmentService.getShipmentsByMandorUserId(
+                null,
+                null,
+                " Supir ",
+                null,
+                null
         );
 
         assertEquals(1, result.size());
