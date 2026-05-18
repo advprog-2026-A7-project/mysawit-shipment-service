@@ -96,6 +96,27 @@ class ShipmentControllerTest {
     }
 
     @Test
+    void getAllShipmentsTreatsBlankOptionalStatusAsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(ShipmentSecurityAttributes.JWT_ROLE, ROLE_ADMIN);
+        when(shipmentService.getShipmentsForAdmin(null, null, null))
+                .thenReturn(List.of(sampleShipment(ID_1)));
+
+        ResponseEntity<List<ShipmentResponse>> response = shipmentController.getAllShipments(
+                null,
+                null,
+                null,
+                " ",
+                null,
+                request
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        verify(shipmentService).getShipmentsForAdmin(null, null, null);
+    }
+
+    @Test
     void getAvailableSupirsReturnsSamePlantationSupirs() {
         WorkerPlantationAssignment assignment = new WorkerPlantationAssignment();
         assignment.setUserId(SUPIR_ID);

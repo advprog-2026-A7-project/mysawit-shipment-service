@@ -85,8 +85,10 @@ class HarvestReadModelEventListenerTest {
         listener.handleHarvestEvent(null);
         listener.handleHarvestEvent(new HarvestShipmentEvent("e", null, MANDOR_ID, PLANTATION_ID, 120.0, STATUS_APPROVED, null));
         listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, null, PLANTATION_ID, 120.0, STATUS_APPROVED, null));
+        listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, MANDOR_ID, null, 120.0, STATUS_APPROVED, null));
         listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, MANDOR_ID, " ", 120.0, STATUS_APPROVED, null));
         listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, MANDOR_ID, PLANTATION_ID, null, STATUS_APPROVED, null));
+        listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, MANDOR_ID, PLANTATION_ID, 120.0, null, null));
         listener.handleHarvestEvent(new HarvestShipmentEvent("e", HARVEST_ID, MANDOR_ID, PLANTATION_ID, 120.0, " ", null));
 
         verify(harvestReadModelRepository, never()).save(org.mockito.ArgumentMatchers.any());

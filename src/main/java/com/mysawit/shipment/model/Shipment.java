@@ -35,13 +35,13 @@ public class Shipment {
     @Column(name = "mandor_user_id", nullable = false)
     private UUID mandorUserId;
 
-    @Column(name = "mandor_name", length = 100)
+    @Column(name = "mandor_name", length = 100, columnDefinition = "TEXT")
     private String mandorName;
 
     @Column(name = "supir_user_id", nullable = false)
     private UUID supirUserId;
 
-    @Column(name = "supir_name", length = 100)
+    @Column(name = "supir_name", length = 100, columnDefinition = "TEXT")
     private String supirName;
 
     @Column(name = "plantation_id", nullable = false, length = 64)

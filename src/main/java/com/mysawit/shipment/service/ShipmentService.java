@@ -91,9 +91,9 @@ public class ShipmentService {
     public List<Shipment> getShipmentsBySupirUserId(UUID supirUserId, LocalDate date, ShipmentStatus status) {
         DateWindow dateWindow = DateWindow.from(date);
         return shipmentRepository.findWithFilters(
-                supirUserId,
+                supirUserId != null ? supirUserId.toString() : null,
                 null,
-                status,
+                status != null ? status.name() : null,
                 null,
                 null,
                 dateWindow.from(),
@@ -110,9 +110,9 @@ public class ShipmentService {
     ) {
         DateWindow dateWindow = DateWindow.from(date);
         return shipmentRepository.findWithFilters(
-                supirUserId,
-                mandorUserId,
-                status,
+                supirUserId != null ? supirUserId.toString() : null,
+                mandorUserId != null ? mandorUserId.toString() : null,
+                status != null ? status.name() : null,
                 null,
                 trimToNull(supirName),
                 dateWindow.from(),
@@ -126,7 +126,7 @@ public class ShipmentService {
         return shipmentRepository.findWithFilters(
                 null,
                 null,
-                effectiveStatus,
+                effectiveStatus.name(),
                 trimToNull(mandorName),
                 null,
                 dateWindow.from(),

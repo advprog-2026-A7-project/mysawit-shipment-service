@@ -22,6 +22,7 @@ class PlantationAssignmentEventListenerTest {
     private static final UUID USER_ID = UUID.fromString("42424242-4242-4242-4242-424242424242");
     private static final OffsetDateTime OCCURRED_AT = OffsetDateTime.parse("2026-04-14T10:00:00Z");
     private static final String PLANTATION_ID = "plantation-1";
+    private static final String WORKER_NAME = "Name";
     private static final String ROLE_SUPIR = "SUPIR";
 
     private WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
@@ -81,6 +82,26 @@ class PlantationAssignmentEventListenerTest {
     }
 
     @Test
+    void handleAssignmentEventSavesNullName() {
+        PlantationAssignmentEvent event = new PlantationAssignmentEvent(
+                "event-2",
+                USER_ID,
+                null,
+                ROLE_SUPIR,
+                PLANTATION_ID,
+                null,
+                OCCURRED_AT
+        );
+        when(workerPlantationAssignmentRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        listener.handleAssignmentEvent(event);
+
+        ArgumentCaptor<WorkerPlantationAssignment> captor = ArgumentCaptor.forClass(WorkerPlantationAssignment.class);
+        verify(workerPlantationAssignmentRepository).save(captor.capture());
+        assertNull(captor.getValue().getName());
+    }
+
+    @Test
     void handleAssignmentEventDeletesOnUnassigned() {
         listener.handleAssignmentEvent(new PlantationAssignmentEvent(
                 "event-3",
@@ -98,9 +119,11 @@ class PlantationAssignmentEventListenerTest {
     @Test
     void handleAssignmentEventIgnoresInvalidPayloads() {
         listener.handleAssignmentEvent(null);
-        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", null, "Name", ROLE_SUPIR, PLANTATION_ID, null, null));
-        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, "Name", " ", PLANTATION_ID, null, null));
-        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, "Name", ROLE_SUPIR, " ", null, null));
+        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", null, WORKER_NAME, ROLE_SUPIR, PLANTATION_ID, null, null));
+        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, WORKER_NAME, null, PLANTATION_ID, null, null));
+        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, WORKER_NAME, " ", PLANTATION_ID, null, null));
+        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, WORKER_NAME, ROLE_SUPIR, null, null, null));
+        listener.handleAssignmentEvent(new PlantationAssignmentEvent("e", USER_ID, WORKER_NAME, ROLE_SUPIR, " ", null, null));
 
         verify(workerPlantationAssignmentRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
