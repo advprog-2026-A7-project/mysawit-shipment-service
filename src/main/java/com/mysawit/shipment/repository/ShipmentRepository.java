@@ -18,19 +18,20 @@ public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
 
     boolean existsByItemsHarvestId(UUID harvestId);
 
-    @Query("SELECT s FROM Shipment s WHERE "
-            + "(:supirUserId IS NULL OR s.supirUserId = :supirUserId) "
-            + "AND (:mandorUserId IS NULL OR s.mandorUserId = :mandorUserId) "
-            + "AND (:status IS NULL OR s.status = :status) "
-            + "AND (:mandorName IS NULL OR LOWER(s.mandorName) LIKE LOWER(CONCAT('%', :mandorName, '%'))) "
-            + "AND (:supirName IS NULL OR LOWER(s.supirName) LIKE LOWER(CONCAT('%', :supirName, '%'))) "
-            + "AND (:from IS NULL OR s.createdAt >= :from) "
-            + "AND (:to IS NULL OR s.createdAt < :to) "
-            + "ORDER BY s.createdAt DESC")
+    @Query(value = "SELECT * FROM shipments s WHERE "
+            + "(CAST(:supirUserId AS TEXT) IS NULL OR s.supir_user_id = CAST(:supirUserId AS UUID)) "
+            + "AND (CAST(:mandorUserId AS TEXT) IS NULL OR s.mandor_user_id = CAST(:mandorUserId AS UUID)) "
+            + "AND (CAST(:status AS TEXT) IS NULL OR s.status = CAST(:status AS TEXT)) "
+            + "AND (CAST(:mandorName AS TEXT) IS NULL OR s.mandor_name ILIKE CONCAT('%', CAST(:mandorName AS TEXT), '%')) "
+            + "AND (CAST(:supirName AS TEXT) IS NULL OR s.supir_name ILIKE CONCAT('%', CAST(:supirName AS TEXT), '%')) "
+            + "AND (CAST(:from AS TIMESTAMPTZ) IS NULL OR s.created_at >= CAST(:from AS TIMESTAMPTZ)) "
+            + "AND (CAST(:to AS TIMESTAMPTZ) IS NULL OR s.created_at < CAST(:to AS TIMESTAMPTZ)) "
+            + "ORDER BY s.created_at DESC",
+            nativeQuery = true)
     List<Shipment> findWithFilters(
-            @Param("supirUserId") UUID supirUserId,
-            @Param("mandorUserId") UUID mandorUserId,
-            @Param("status") ShipmentStatus status,
+            @Param("supirUserId") String supirUserId,
+            @Param("mandorUserId") String mandorUserId,
+            @Param("status") String status,
             @Param("mandorName") String mandorName,
             @Param("supirName") String supirName,
             @Param("from") OffsetDateTime from,

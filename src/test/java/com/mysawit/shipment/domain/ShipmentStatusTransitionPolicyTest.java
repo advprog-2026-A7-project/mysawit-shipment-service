@@ -18,6 +18,19 @@ class ShipmentStatusTransitionPolicyTest {
     }
 
     @Test
+    void allowsMandorApprovalDecisionsAfterArrival() {
+        assertTrue(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.TIBA, ShipmentStatus.MANDOR_APPROVED));
+        assertTrue(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.TIBA, ShipmentStatus.MANDOR_REJECTED));
+    }
+
+    @Test
+    void allowsAdminApprovalDecisionsAfterMandorApproval() {
+        assertTrue(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MANDOR_APPROVED, ShipmentStatus.ADMIN_APPROVED));
+        assertTrue(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MANDOR_APPROVED, ShipmentStatus.ADMIN_REJECTED));
+        assertTrue(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MANDOR_APPROVED, ShipmentStatus.PARTIALLY_REJECTED));
+    }
+
+    @Test
     void rejectsSkippingFromMemuatToTiba() {
         assertFalse(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MEMUAT, ShipmentStatus.TIBA));
     }
@@ -25,6 +38,11 @@ class ShipmentStatusTransitionPolicyTest {
     @Test
     void rejectsAnyTransitionFromTerminalTiba() {
         assertFalse(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.TIBA, ShipmentStatus.MENGIRIM));
+    }
+
+    @Test
+    void rejectsNonAdminDecisionAfterMandorApproval() {
+        assertFalse(ShipmentStatusTransitionPolicy.canTransition(ShipmentStatus.MANDOR_APPROVED, ShipmentStatus.MENGIRIM));
     }
 
     @Test
