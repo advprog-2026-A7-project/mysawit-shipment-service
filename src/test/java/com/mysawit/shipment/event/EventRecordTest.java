@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Test;
 
 class EventRecordTest {
@@ -37,6 +38,14 @@ class EventRecordTest {
         assertEquals("p", event.plantationId());
         assertEquals("ASSIGNED", event.action());
         assertEquals(OCCURRED_AT, event.occurredAt());
+    }
+
+    @Test
+    void plantationAssignmentEventSupportsNullRecordStyleValues() {
+        PlantationAssignmentEvent event = new PlantationAssignmentEvent("e", null, "Name", ROLE_SUPIR, "p", " ", OCCURRED_AT);
+
+        assertNull(event.userId());
+        assertNull(event.action());
     }
 
     @Test
