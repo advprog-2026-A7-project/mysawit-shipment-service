@@ -53,6 +53,7 @@ import com.mysawit.shipment.service.ShipmentService;
     "cors.allowed-origins=*",
     "spring.sql.init.mode=never"
 })
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ShipmentFunctionalTest {
 
     private static final UUID MANDOR_ID = UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111");
