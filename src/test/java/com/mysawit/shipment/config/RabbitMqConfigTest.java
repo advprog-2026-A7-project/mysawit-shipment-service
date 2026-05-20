@@ -35,6 +35,7 @@ class RabbitMqConfigTest {
     void integrationExchangesReturnTopicExchangesWithCorrectNames() {
         assertEquals(RabbitMqConfig.HARVEST_EXCHANGE, rabbitMqConfig.harvestExchange().getName());
         assertEquals(RabbitMqConfig.PLANTATION_EXCHANGE, rabbitMqConfig.plantationExchange().getName());
+        assertEquals(RabbitMqConfig.USER_EXCHANGE, rabbitMqConfig.userExchange().getName());
         assertEquals(RabbitMqConfig.NOTIFICATION_EXCHANGE, rabbitMqConfig.notificationExchange().getName());
     }
 
@@ -42,9 +43,17 @@ class RabbitMqConfigTest {
     void queuesReturnDurableQueuesWithCorrectNames() {
         Queue harvestQueue = rabbitMqConfig.harvestEventsQueue();
         Queue assignmentQueue = rabbitMqConfig.plantationAssignmentQueue();
+        Queue userRegisteredQueue = rabbitMqConfig.userRegisteredQueue();
+        Queue userAssignmentQueue = rabbitMqConfig.userAssignmentQueue();
+        Queue userUpdatedQueue = rabbitMqConfig.userUpdatedQueue();
+        Queue userDeletedQueue = rabbitMqConfig.userDeletedQueue();
 
         assertEquals(RabbitMqConfig.HARVEST_EVENTS_QUEUE, harvestQueue.getName());
         assertEquals(RabbitMqConfig.PLANTATION_ASSIGNMENT_QUEUE, assignmentQueue.getName());
+        assertEquals(RabbitMqConfig.USER_REGISTERED_QUEUE, userRegisteredQueue.getName());
+        assertEquals(RabbitMqConfig.USER_ASSIGNMENT_QUEUE, userAssignmentQueue.getName());
+        assertEquals(RabbitMqConfig.USER_UPDATED_QUEUE, userUpdatedQueue.getName());
+        assertEquals(RabbitMqConfig.USER_DELETED_QUEUE, userDeletedQueue.getName());
     }
 
     @Test
@@ -57,9 +66,29 @@ class RabbitMqConfigTest {
                 rabbitMqConfig.plantationAssignmentQueue(),
                 rabbitMqConfig.plantationExchange()
         );
+        Binding userRegisteredBinding = rabbitMqConfig.userRegisteredBinding(
+                rabbitMqConfig.userRegisteredQueue(),
+                rabbitMqConfig.userExchange()
+        );
+        Binding userAssignmentBinding = rabbitMqConfig.userAssignmentBinding(
+                rabbitMqConfig.userAssignmentQueue(),
+                rabbitMqConfig.userExchange()
+        );
+        Binding userUpdatedBinding = rabbitMqConfig.userUpdatedBinding(
+                rabbitMqConfig.userUpdatedQueue(),
+                rabbitMqConfig.userExchange()
+        );
+        Binding userDeletedBinding = rabbitMqConfig.userDeletedBinding(
+                rabbitMqConfig.userDeletedQueue(),
+                rabbitMqConfig.userExchange()
+        );
 
         assertEquals(RabbitMqConfig.HARVEST_EVENTS_ROUTING_KEY, harvestBinding.getRoutingKey());
         assertEquals(RabbitMqConfig.PLANTATION_ASSIGNMENT_ROUTING_KEY, assignmentBinding.getRoutingKey());
+        assertEquals(RabbitMqConfig.USER_REGISTERED_ROUTING_KEY, userRegisteredBinding.getRoutingKey());
+        assertEquals(RabbitMqConfig.USER_ASSIGNMENT_ROUTING_KEY, userAssignmentBinding.getRoutingKey());
+        assertEquals(RabbitMqConfig.USER_UPDATED_ROUTING_KEY, userUpdatedBinding.getRoutingKey());
+        assertEquals(RabbitMqConfig.USER_DELETED_ROUTING_KEY, userDeletedBinding.getRoutingKey());
     }
 
     @Test
