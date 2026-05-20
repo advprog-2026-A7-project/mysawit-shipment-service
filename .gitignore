@@ -46,3 +46,6 @@ skills-lock.json
 .env
 .DS_Store
 
+# Exclude docs and evidence
+docs/
+SKALA_4_EVIDENCE.md

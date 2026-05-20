@@ -15,7 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mysawit.shipment.client.HarvestServiceClient;
+import com.mysawit.shipment.service.HarvestReplicaService;
 import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.domain.ShipmentStatusTransitionPolicy;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
@@ -60,7 +60,7 @@ public class ShipmentService {
     private static final String ROLE_MANDOR = "MANDOR";
     private static final String ROLE_SUPIR = "SUPIR";
     
-    private final HarvestServiceClient harvestServiceClient;
+    private final HarvestReplicaService harvestReplicaService;
     private final ShipmentEventPublisher shipmentEventPublisher;
     private final ShipmentRepository shipmentRepository;
     private final WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
@@ -68,13 +68,13 @@ public class ShipmentService {
     
     public ShipmentService(
             ShipmentRepository shipmentRepository,
-            HarvestServiceClient harvestServiceClient,
+            HarvestReplicaService harvestReplicaService,
             ShipmentEventPublisher shipmentEventPublisher,
             WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository,
             @Value("${shipment.max-weight-kg:400}") double maxWeightKg
     ) {
         this.shipmentRepository = shipmentRepository;
-        this.harvestServiceClient = harvestServiceClient;
+        this.harvestReplicaService = harvestReplicaService;
         this.shipmentEventPublisher = shipmentEventPublisher;
         this.workerPlantationAssignmentRepository = workerPlantationAssignmentRepository;
         this.maxWeightKg = maxWeightKg;
@@ -286,7 +286,7 @@ public class ShipmentService {
         String plantationId = null;
         for (CreateShipmentRequest.HarvestItem item : request.items()) {
             UUID harvestId = item.harvestId();
-            HarvestServiceClient.HarvestDetails harvest = harvestServiceClient.getHarvestById(mandorUserId, harvestId);
+            HarvestReplicaService.HarvestDetails harvest = harvestReplicaService.getHarvestById(mandorUserId, harvestId);
             validateHarvest(mandorUserId, harvestId, harvest);
             plantationId = resolveShipmentPlantation(plantationId, harvest.plantationId());
         }
@@ -303,7 +303,7 @@ public class ShipmentService {
         }
     }
 
-    private void validateHarvest(UUID mandorUserId, UUID harvestId, HarvestServiceClient.HarvestDetails harvest) {
+    private void validateHarvest(UUID mandorUserId, UUID harvestId, HarvestReplicaService.HarvestDetails harvest) {
         if (harvest == null) {
             throw HarvestValidationException.notFound(ERR_HARVEST_NOT_FOUND_PREFIX + harvestId);
         }

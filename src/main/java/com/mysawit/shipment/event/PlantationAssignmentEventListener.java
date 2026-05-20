@@ -2,6 +2,7 @@ package com.mysawit.shipment.event;
 
 import java.time.OffsetDateTime;
 import java.util.Locale;
+import java.util.UUID;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -13,8 +14,6 @@ import com.mysawit.shipment.repository.WorkerPlantationAssignmentRepository;
 
 @Component
 public class PlantationAssignmentEventListener {
-
-    private static final String ACTION_UNASSIGNED = "UNASSIGNED";
 
     private final WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
 
@@ -29,39 +28,40 @@ public class PlantationAssignmentEventListener {
             return;
         }
         if (isUnassign(event)) {
-            workerPlantationAssignmentRepository.deleteById(event.userId());
+            workerPlantationAssignmentRepository.deleteById(parseUuid(event.getUserId()));
             return;
         }
         if (!hasAssignmentTarget(event)) {
             return;
         }
 
-        WorkerPlantationAssignment assignment = workerPlantationAssignmentRepository.findById(event.userId())
+        UUID userId = parseUuid(event.getUserId());
+        WorkerPlantationAssignment assignment = workerPlantationAssignmentRepository.findById(userId)
                 .orElseGet(WorkerPlantationAssignment::new);
-        assignment.setUserId(event.userId());
-        assignment.setRole(event.role().trim().toUpperCase(Locale.ROOT));
-        assignment.setName(trimToNull(event.name()));
-        assignment.setPlantationId(event.plantationId().trim());
-        assignment.setLastEventId(event.eventId());
+        assignment.setUserId(userId);
+        assignment.setRole(event.getRole().trim().toUpperCase(Locale.ROOT));
+        assignment.setName(trimToNull(event.getName()));
+        assignment.setPlantationId(event.getPlantationId().trim());
+        assignment.setLastEventId(event.getEventId());
         assignment.setUpdatedAt(resolveOccurredAt(event));
 
         workerPlantationAssignmentRepository.save(assignment);
     }
 
     private boolean hasIdentity(PlantationAssignmentEvent event) {
-        return event != null && event.userId() != null && event.role() != null && !event.role().isBlank();
+        return event != null && event.getUserId() != null && event.getRole() != null && !event.getRole().isBlank();
     }
 
     private boolean isUnassign(PlantationAssignmentEvent event) {
-        return event.action() != null && ACTION_UNASSIGNED.equalsIgnoreCase(event.action().trim());
+        return PlantationAssignmentEvent.AssignmentAction.UNASSIGNED.equals(event.getAction());
     }
 
     private boolean hasAssignmentTarget(PlantationAssignmentEvent event) {
-        return event.plantationId() != null && !event.plantationId().isBlank();
+        return event.getPlantationId() != null && !event.getPlantationId().isBlank();
     }
 
     private OffsetDateTime resolveOccurredAt(PlantationAssignmentEvent event) {
-        return event.occurredAt() != null ? event.occurredAt() : OffsetDateTime.now();
+        return event.getOccurredAt() != null ? event.getOccurredAt() : OffsetDateTime.now();
     }
 
     private String trimToNull(String value) {
@@ -69,5 +69,9 @@ public class PlantationAssignmentEventListener {
             return null;
         }
         return value.trim();
+    }
+
+    private UUID parseUuid(String value) {
+        return UUID.fromString(value);
     }
 }
