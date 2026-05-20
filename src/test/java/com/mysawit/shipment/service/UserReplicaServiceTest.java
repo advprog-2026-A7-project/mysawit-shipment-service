@@ -16,11 +16,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.mysawit.shipment.event.UserAssignmentEvent;
 import com.mysawit.shipment.event.UserDeletedEvent;
 import com.mysawit.shipment.event.UserRegisteredEvent;
+import com.mysawit.shipment.event.UserUpdatedEvent;
 
 class UserReplicaServiceTest {
 
     private static final String USER_ID = "11111111-1111-1111-1111-111111111111";
     private static final String MANDOR_ID = "22222222-2222-2222-2222-222222222222";
+    private static final String ROLE_SUPIR = "SUPIR";
+    private static final String UPDATED_EMAIL = "updated@mysawit.local";
 
     private JdbcTemplate jdbcTemplate;
     private UserReplicaService service;
@@ -36,7 +39,7 @@ class UserReplicaServiceTest {
         UserRegisteredEvent event = new UserRegisteredEvent(
                 USER_ID,
                 "supir@mysawit.local",
-                "SUPIR",
+                ROLE_SUPIR,
                 "supir-demo"
         );
 
@@ -47,7 +50,7 @@ class UserReplicaServiceTest {
                 eq(UUID.fromString(USER_ID)),
                 eq("supir@mysawit.local"),
                 eq("supir-demo"),
-                eq("SUPIR")
+                eq(ROLE_SUPIR)
         );
     }
 
@@ -132,8 +135,52 @@ class UserReplicaServiceTest {
     }
 
     @Test
+    void upsertFromUpdateStoresUserProfileWithUsername() {
+        UserUpdatedEvent event = new UserUpdatedEvent(
+                USER_ID,
+                UPDATED_EMAIL,
+                ROLE_SUPIR,
+                "updated-supir",
+                "Updated Supir",
+                Instant.now()
+        );
+
+        service.upsertFromUpdate(event);
+
+        verify(jdbcTemplate).update(
+                anyString(),
+                eq(UUID.fromString(USER_ID)),
+                eq(UPDATED_EMAIL),
+                eq("updated-supir"),
+                eq(ROLE_SUPIR)
+        );
+    }
+
+    @Test
+    void upsertFromUpdateFallsBackToNameWhenUsernameBlank() {
+        UserUpdatedEvent event = new UserUpdatedEvent(
+                USER_ID,
+                UPDATED_EMAIL,
+                "MANDOR",
+                " ",
+                "Updated Mandor",
+                Instant.now()
+        );
+
+        service.upsertFromUpdate(event);
+
+        verify(jdbcTemplate).update(
+                anyString(),
+                eq(UUID.fromString(USER_ID)),
+                eq(UPDATED_EMAIL),
+                eq("Updated Mandor"),
+                eq("MANDOR")
+        );
+    }
+
+    @Test
     void markDeletedMarksReplicaAsDeleted() {
-        UserDeletedEvent event = new UserDeletedEvent(USER_ID, "SUPIR", null, Instant.now());
+        UserDeletedEvent event = new UserDeletedEvent(USER_ID, ROLE_SUPIR, null, Instant.now());
 
         service.markDeleted(event);
 

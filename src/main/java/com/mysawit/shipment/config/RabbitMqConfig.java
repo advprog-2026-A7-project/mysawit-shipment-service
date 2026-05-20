@@ -15,14 +15,25 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
+    private static final String USER_EXCHANGE_BEAN = "userExchange";
+
     public static final String EXCHANGE = "shipment.exchange";
     public static final String HARVEST_EXCHANGE = "harvest.exchange";
     public static final String PLANTATION_EXCHANGE = "plantation.exchange";
+    public static final String USER_EXCHANGE = "user.exchange";
     public static final String NOTIFICATION_EXCHANGE = "notification.exchange";
     public static final String HARVEST_EVENTS_QUEUE = "shipment.harvest-events.queue";
     public static final String PLANTATION_ASSIGNMENT_QUEUE = "shipment.plantation-assignment.queue";
+    public static final String USER_REGISTERED_QUEUE = "shipment.user.registered.queue";
+    public static final String USER_ASSIGNMENT_QUEUE = "shipment.user.assignment.queue";
+    public static final String USER_UPDATED_QUEUE = "shipment.user.updated.queue";
+    public static final String USER_DELETED_QUEUE = "shipment.user.deleted.queue";
     public static final String HARVEST_EVENTS_ROUTING_KEY = "harvest.*";
     public static final String PLANTATION_ASSIGNMENT_ROUTING_KEY = "plantation.assignment.*";
+    public static final String USER_REGISTERED_ROUTING_KEY = "user.registered";
+    public static final String USER_ASSIGNMENT_ROUTING_KEY = "user.assignment.*";
+    public static final String USER_UPDATED_ROUTING_KEY = "user.updated";
+    public static final String USER_DELETED_ROUTING_KEY = "user.deleted";
 
     @Bean
     public TopicExchange shipmentExchange() {
@@ -37,6 +48,11 @@ public class RabbitMqConfig {
     @Bean
     public TopicExchange plantationExchange() {
         return new TopicExchange(PLANTATION_EXCHANGE);
+    }
+
+    @Bean
+    public TopicExchange userExchange() {
+        return new TopicExchange(USER_EXCHANGE);
     }
 
     @Bean
@@ -55,6 +71,26 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue userRegisteredQueue() {
+        return new Queue(USER_REGISTERED_QUEUE, true);
+    }
+
+    @Bean
+    public Queue userAssignmentQueue() {
+        return new Queue(USER_ASSIGNMENT_QUEUE, true);
+    }
+
+    @Bean
+    public Queue userUpdatedQueue() {
+        return new Queue(USER_UPDATED_QUEUE, true);
+    }
+
+    @Bean
+    public Queue userDeletedQueue() {
+        return new Queue(USER_DELETED_QUEUE, true);
+    }
+
+    @Bean
     public Binding harvestEventsBinding(
             @Qualifier("harvestEventsQueue") Queue harvestEventsQueue,
             @Qualifier("harvestExchange") TopicExchange harvestExchange
@@ -68,6 +104,38 @@ public class RabbitMqConfig {
             @Qualifier("plantationExchange") TopicExchange plantationExchange
     ) {
         return BindingBuilder.bind(plantationAssignmentQueue).to(plantationExchange).with(PLANTATION_ASSIGNMENT_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userRegisteredBinding(
+            @Qualifier("userRegisteredQueue") Queue userRegisteredQueue,
+            @Qualifier(USER_EXCHANGE_BEAN) TopicExchange userExchange
+    ) {
+        return BindingBuilder.bind(userRegisteredQueue).to(userExchange).with(USER_REGISTERED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userAssignmentBinding(
+            @Qualifier("userAssignmentQueue") Queue userAssignmentQueue,
+            @Qualifier(USER_EXCHANGE_BEAN) TopicExchange userExchange
+    ) {
+        return BindingBuilder.bind(userAssignmentQueue).to(userExchange).with(USER_ASSIGNMENT_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userUpdatedBinding(
+            @Qualifier("userUpdatedQueue") Queue userUpdatedQueue,
+            @Qualifier(USER_EXCHANGE_BEAN) TopicExchange userExchange
+    ) {
+        return BindingBuilder.bind(userUpdatedQueue).to(userExchange).with(USER_UPDATED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userDeletedBinding(
+            @Qualifier("userDeletedQueue") Queue userDeletedQueue,
+            @Qualifier(USER_EXCHANGE_BEAN) TopicExchange userExchange
+    ) {
+        return BindingBuilder.bind(userDeletedQueue).to(userExchange).with(USER_DELETED_ROUTING_KEY);
     }
 
     @Bean
