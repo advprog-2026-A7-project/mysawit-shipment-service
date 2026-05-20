@@ -3,16 +3,13 @@ package com.mysawit.shipment.service;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.mysawit.shipment.client.HarvestServiceClient;
 import com.mysawit.shipment.event.HarvestEvent;
 
 @Service
-@Primary
-public class HarvestReplicaService implements HarvestServiceClient {
+public class HarvestReplicaService {
 
     private static final String UPSERT_HARVEST = """
             insert into public.shipment_harvest_replicas (
@@ -61,7 +58,6 @@ public class HarvestReplicaService implements HarvestServiceClient {
         );
     }
 
-    @Override
     public HarvestDetails getHarvestById(UUID foremanId, UUID harvestId) {
         return jdbcTemplate.query(
                 FIND_HARVEST_BY_ID_AND_FOREMAN,
@@ -87,5 +83,14 @@ public class HarvestReplicaService implements HarvestServiceClient {
             return null;
         }
         return NORMALIZED_STATUSES.getOrDefault(rawStatus, rawStatus);
+    }
+
+    public record HarvestDetails(
+            UUID id,
+            UUID mandorUserId,
+            String plantationId,
+            String status,
+            Double weightKg
+    ) {
     }
 }

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 
-import com.mysawit.shipment.client.HarvestServiceClient;
 import com.mysawit.shipment.event.HarvestEvent;
 
 class HarvestReplicaServiceTest {
@@ -69,7 +68,7 @@ class HarvestReplicaServiceTest {
     void getHarvestByIdReturnsReplicaHarvestAndNormalizesStatus() {
         mockReplicaQuery(HARVEST_ID, APPROVED_STATUS, true);
 
-        HarvestServiceClient.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
+        HarvestReplicaService.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
 
         assertEquals(HARVEST_ID, result.id());
         assertEquals("Approved", result.status());
@@ -79,7 +78,7 @@ class HarvestReplicaServiceTest {
     void getHarvestByIdReturnsNullWhenReplicaIsMissing() {
         mockReplicaQuery(HARVEST_ID, APPROVED_STATUS, false);
 
-        HarvestServiceClient.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
+        HarvestReplicaService.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
 
         assertNull(result);
     }
@@ -88,7 +87,7 @@ class HarvestReplicaServiceTest {
     void getHarvestByIdReturnsNullStatusWhenReplicaStatusIsNull() {
         mockReplicaQuery(HARVEST_ID, null, true);
 
-        HarvestServiceClient.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
+        HarvestReplicaService.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
 
         assertNull(result.status());
     }
@@ -97,7 +96,7 @@ class HarvestReplicaServiceTest {
     void getHarvestByIdKeepsUnknownStatus() {
         mockReplicaQuery(HARVEST_ID, "CUSTOM", true);
 
-        HarvestServiceClient.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
+        HarvestReplicaService.HarvestDetails result = service.getHarvestById(FOREMAN_ID, HARVEST_ID);
 
         assertEquals("CUSTOM", result.status());
     }
@@ -110,7 +109,7 @@ class HarvestReplicaServiceTest {
                 eq(harvestId),
                 eq(FOREMAN_ID)
         )).thenAnswer(invocation -> {
-            ResultSetExtractor<HarvestServiceClient.HarvestDetails> extractor = invocation.getArgument(1);
+            ResultSetExtractor<HarvestReplicaService.HarvestDetails> extractor = invocation.getArgument(1);
             ResultSet resultSet = mock(ResultSet.class);
             when(resultSet.next()).thenReturn(found);
             if (found) {

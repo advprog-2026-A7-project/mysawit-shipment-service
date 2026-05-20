@@ -33,12 +33,19 @@ create table if not exists public.shipments (
 
 alter table public.shipments
     add column if not exists mandor_user_id uuid,
+    add column if not exists mandor_name text,
     add column if not exists supir_user_id uuid,
+    add column if not exists supir_name text,
+    add column if not exists plantation_id varchar(64),
     add column if not exists destination varchar(255),
     add column if not exists total_kg double precision,
+    add column if not exists kg_accepted double precision,
+    add column if not exists rejection_reason text,
     add column if not exists status varchar(255),
     add column if not exists created_at timestamptz,
-    add column if not exists updated_at timestamptz;
+    add column if not exists updated_at timestamptz,
+    add column if not exists mandor_reviewed_at timestamptz,
+    add column if not exists admin_reviewed_at timestamptz;
 
 create table if not exists public.shipment_items (
     id uuid primary key default gen_random_uuid()
@@ -54,6 +61,7 @@ update public.shipments
 set
     mandor_user_id = coalesce(mandor_user_id, (select mandor_user_id from _shipment_seed_params)),
     supir_user_id = coalesce(supir_user_id, (select supir_user_id from _shipment_seed_params)),
+    plantation_id = coalesce(nullif(plantation_id, ''), 'dummy-plantation'),
     destination = coalesce(nullif(destination, ''), 'Pabrik Sawit Dummy'),
     total_kg = coalesce(total_kg, 1),
     status = case
@@ -68,6 +76,7 @@ set
 alter table public.shipments
     alter column mandor_user_id set not null,
     alter column supir_user_id set not null,
+    alter column plantation_id set not null,
     alter column destination set not null,
     alter column total_kg set not null,
     alter column status set not null;
@@ -79,16 +88,10 @@ alter table public.shipments
     add constraint shipments_status_check
     check (status in ('MEMUAT', 'MENGIRIM', 'TIBA', 'ADMIN_APPROVED', 'PARTIALLY_REJECTED'));
 
--- Columns from the screenshot that are not read/written by the current backend.
+-- Legacy single-harvest column from older demos; current backend stores harvests
+-- through shipment_items.
 alter table public.shipments
-    drop column if exists admin_reviewed_at,
-    drop column if exists harvest_id,
-    drop column if exists kg_accepted,
-    drop column if exists mandor_name,
-    drop column if exists mandor_reviewed_at,
-    drop column if exists plantation_id,
-    drop column if exists rejection_reason,
-    drop column if exists supir_name;
+    drop column if exists harvest_id;
 
 -- Dummy rows for GET /api/shipments and GET /api/shipments/{id}.
 with seed_params as (

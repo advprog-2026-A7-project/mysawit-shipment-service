@@ -16,10 +16,12 @@ public interface WorkerPlantationAssignmentRepository extends JpaRepository<Work
 
     Optional<WorkerPlantationAssignment> findByUserIdAndRole(UUID userId, String role);
 
-    @Query("SELECT a FROM WorkerPlantationAssignment a WHERE a.role = :role "
-            + "AND a.plantationId = :plantationId "
-            + "AND (:name IS NULL OR LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%'))) "
-            + "ORDER BY a.name ASC")
+    @Query(value = "SELECT * FROM worker_plantation_assignments a WHERE "
+            + "a.role = CAST(:role AS TEXT) "
+            + "AND a.plantation_id = CAST(:plantationId AS TEXT) "
+            + "AND (CAST(:name AS TEXT) IS NULL OR a.name ILIKE CONCAT('%', CAST(:name AS TEXT), '%')) "
+            + "ORDER BY a.name ASC",
+            nativeQuery = true)
     List<WorkerPlantationAssignment> findByRoleAndPlantationIdAndName(
             @Param("role") String role,
             @Param("plantationId") String plantationId,

@@ -204,6 +204,25 @@ jobs:
           ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" \
             "export APP_HOME='$REMOTE_APP_DIR' RELEASE_DIR='$REMOTE_RELEASE_DIR' IMAGE_TAG='$IMAGE_TAG' APP_NAME='mysawit-shipment' CONTAINER_NAME='mysawit-shipment' APP_PORT='8084' HOST_PORT='$SHIPMENT_HOST_PORT' DEPLOY_LOG='$REMOTE_APP_DIR/deploy.log'; bash '$REMOTE_RELEASE_DIR/scripts/deploy-ec2.sh'"
 
+      - name: Verify public health endpoint
+        run: |
+          set -euo pipefail
+          HEALTH_URL="http://${STAGING_HOST}:${SHIPMENT_HOST_PORT}/actuator/health"
+
+          echo "Checking public shipment health endpoint"
+          for attempt in $(seq 1 12); do
+            if curl -fsS --connect-timeout 5 --max-time 10 "$HEALTH_URL"; then
+              echo "Public shipment health endpoint is reachable"
+              exit 0
+            fi
+
+            echo "Public shipment health endpoint is not reachable yet; retrying in 5s (${attempt}/12)"
+            sleep 5
+          done
+
+          echo "::error::Public shipment health endpoint is not reachable at http://<STAGING_HOST>:${SHIPMENT_HOST_PORT}/actuator/health"
+          exit 1
+
       - name: Fetch deployment diagnostics on failure
         if: failure()
         run: |
