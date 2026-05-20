@@ -24,8 +24,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
             + "AND (CAST(:status AS TEXT) IS NULL OR s.status = CAST(:status AS TEXT)) "
             + "AND (CAST(:mandorName AS TEXT) IS NULL OR s.mandor_name ILIKE CONCAT('%', CAST(:mandorName AS TEXT), '%')) "
             + "AND (CAST(:supirName AS TEXT) IS NULL OR s.supir_name ILIKE CONCAT('%', CAST(:supirName AS TEXT), '%')) "
-            + "AND (CAST(:from AS TIMESTAMPTZ) IS NULL OR s.created_at >= CAST(:from AS TIMESTAMPTZ)) "
-            + "AND (CAST(:to AS TIMESTAMPTZ) IS NULL OR s.created_at < CAST(:to AS TIMESTAMPTZ)) "
+            + "AND (CAST(:from AS TIMESTAMP WITH TIME ZONE) IS NULL OR s.created_at >= CAST(:from AS TIMESTAMP WITH TIME ZONE)) "
+            + "AND (CAST(:to AS TIMESTAMP WITH TIME ZONE) IS NULL OR s.created_at < CAST(:to AS TIMESTAMP WITH TIME ZONE)) "
             + "ORDER BY s.created_at DESC",
             nativeQuery = true)
     List<Shipment> findWithFilters(

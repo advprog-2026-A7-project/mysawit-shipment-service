@@ -23,7 +23,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "shipments")
+@Table(name = "shipments", indexes = {
+    @jakarta.persistence.Index(name = "idx_shipments_supir_user_id", columnList = "supir_user_id"),
+    @jakarta.persistence.Index(name = "idx_shipments_mandor_user_id", columnList = "mandor_user_id"),
+    @jakarta.persistence.Index(name = "idx_shipments_status", columnList = "status"),
+    @jakarta.persistence.Index(name = "idx_shipments_created_at", columnList = "created_at")
+})
 @Getter
 @Setter
 public class Shipment {
