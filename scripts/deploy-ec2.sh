@@ -289,6 +289,44 @@ while IFS= read -r image_id; do
 done < <(docker_cmd image ls "azzelll/mysawit-shipment" --format '{{.ID}}' | sort -u)
 
 docker_cmd image prune -f >/dev/null 2>&1 || true
-find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf >/dev/null 2>&1 || true
+
+# Prune old release dirs by modification time (newest first), keep the most recent 5.
+# Always protect the current RELEASE_DIR so a deploy never deletes its own artefacts,
+# even if the directory is somehow older than 5 others (e.g. clock skew, manual mtime).
+prune_release_dirs() {
+  local releases_dir="$1"
+  local keep_dir="$2"
+  local kept=0
+  local entry
+
+  if [ ! -d "$releases_dir" ]; then
+    return
+  fi
+
+  # Collect dirs sorted by mtime (newest first) without invoking the shell on filenames.
+  while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
+    if [ "$entry" = "$keep_dir" ]; then
+      kept=$((kept + 1))
+      continue
+    fi
+    if [ "$kept" -lt 5 ]; then
+      kept=$((kept + 1))
+      continue
+    fi
+    rm -rf -- "$entry"
+  done < <(find "$releases_dir" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+      | sort -rn \
+      | cut -d' ' -f2-)
+}
+
+prune_release_dirs "$RELEASES_DIR" "$RELEASE_DIR"
+
+# Defensive: re-assert the current symlink in case anything above accidentally removed
+# its target. The deploy is still considered successful because the container is healthy.
+if [ ! -e "$CURRENT_LINK" ]; then
+  log "Re-pointing current symlink to ${RELEASE_DIR}"
+  ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+fi
 
 log "Deployment finished successfully"
