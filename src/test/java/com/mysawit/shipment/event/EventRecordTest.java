@@ -15,19 +15,6 @@ class EventRecordTest {
     private static final String ROLE_SUPIR = "SUPIR";
 
     @Test
-    void harvestShipmentEventStoresValues() {
-        HarvestShipmentEvent event = new HarvestShipmentEvent("e", ID, ID, "p", 10.0, "APPROVED", OCCURRED_AT);
-
-        assertEquals("e", event.eventId());
-        assertEquals(ID, event.harvestId());
-        assertEquals(ID, event.mandorUserId());
-        assertEquals("p", event.plantationId());
-        assertEquals(10.0, event.weightKg());
-        assertEquals("APPROVED", event.status());
-        assertEquals(OCCURRED_AT, event.occurredAt());
-    }
-
-    @Test
     void plantationAssignmentEventStoresValues() {
         PlantationAssignmentEvent event = new PlantationAssignmentEvent("e", ID, "Name", ROLE_SUPIR, "p", "ASSIGNED", OCCURRED_AT);
 

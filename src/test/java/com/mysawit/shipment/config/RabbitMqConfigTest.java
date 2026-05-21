@@ -6,13 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+
+import com.mysawit.shipment.event.HarvestEvent;
+import com.mysawit.shipment.event.PlantationAssignmentEvent;
+import com.mysawit.shipment.event.UserAssignmentEvent;
+import com.mysawit.shipment.event.UserDeletedEvent;
+import com.mysawit.shipment.event.UserRegisteredEvent;
+import com.mysawit.shipment.event.UserUpdatedEvent;
 
 class RabbitMqConfigTest {
 
@@ -94,6 +104,35 @@ class RabbitMqConfigTest {
     @Test
     void jsonMessageConverterReturnsJackson2JsonMessageConverter() {
         assertInstanceOf(Jackson2JsonMessageConverter.class, rabbitMqConfig.jsonMessageConverter());
+    }
+
+    @Test
+    void jsonMessageConverterUsesDefaultClassMapperWithExpectedMapping() {
+        MessageConverter converter = rabbitMqConfig.jsonMessageConverter();
+
+        Jackson2JsonMessageConverter jsonConverter = assertInstanceOf(Jackson2JsonMessageConverter.class, converter);
+        DefaultClassMapper classMapper = assertInstanceOf(DefaultClassMapper.class, jsonConverter.getClassMapper());
+
+        assertEquals(HarvestEvent.class,
+                resolve(classMapper, "com.mysawit.harvest.event.HarvestPayrollEvent"));
+        assertEquals(UserRegisteredEvent.class,
+                resolve(classMapper, "com.mysawit.identity.event.UserRegisteredEvent"));
+        assertEquals(UserDeletedEvent.class,
+                resolve(classMapper, "com.mysawit.identity.event.UserDeletedEvent"));
+        assertEquals(UserAssignmentEvent.class,
+                resolve(classMapper, "com.mysawit.identity.event.UserAssignedEvent"));
+        assertEquals(UserAssignmentEvent.class,
+                resolve(classMapper, "com.mysawit.identity.event.UserAssignmentEvent"));
+        assertEquals(UserUpdatedEvent.class,
+                resolve(classMapper, "com.mysawit.identity.event.UserUpdatedEvent"));
+        assertEquals(PlantationAssignmentEvent.class,
+                resolve(classMapper, "com.mysawit.plantation.event.PlantationAssignmentEvent"));
+    }
+
+    private static Class<?> resolve(DefaultClassMapper classMapper, String typeId) {
+        MessageProperties properties = new MessageProperties();
+        properties.getHeaders().put("__TypeId__", typeId);
+        return classMapper.toClass(properties);
     }
 
     @Test

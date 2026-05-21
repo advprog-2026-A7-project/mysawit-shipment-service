@@ -36,7 +36,6 @@ import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.event.HarvestEvent;
 import com.mysawit.shipment.event.HarvestEventConsumer;
 import com.mysawit.shipment.event.PlantationAssignmentEvent;
-import com.mysawit.shipment.event.PlantationAssignmentEventConsumer;
 import com.mysawit.shipment.event.PlantationAssignmentEventListener;
 import com.mysawit.shipment.event.ShipmentEventPublisher;
 import com.mysawit.shipment.event.UserAssignmentEvent;
@@ -54,7 +53,6 @@ import com.mysawit.shipment.repository.ShipmentRepository;
 import com.mysawit.shipment.repository.WorkerPlantationAssignmentRepository;
 import com.mysawit.shipment.security.JwtFixture;
 import com.mysawit.shipment.service.HarvestReplicaService;
-import com.mysawit.shipment.service.PlantationAssignmentReplicaService;
 import com.mysawit.shipment.service.ShipmentReplicaSchemaInitializer;
 import com.mysawit.shipment.service.UserReplicaService;
 
@@ -86,7 +84,7 @@ import io.restassured.http.ContentType;
 })
 class ShipmentFeatureProfilingTest {
 
-    private static final int EXPECTED_PROFILED_FEATURES = 25;
+    private static final int EXPECTED_PROFILED_FEATURES = 24;
     private static final String PLANTATION_ID = "plantation-profile";
     private static final UUID MANDOR_ID = uuid("mandor");
     private static final UUID SUPIR_ID = uuid("supir");
@@ -122,9 +120,6 @@ class ShipmentFeatureProfilingTest {
     private UserDeletedEventConsumer userDeletedEventConsumer;
 
     @Autowired
-    private PlantationAssignmentEventConsumer plantationAssignmentEventConsumer;
-
-    @Autowired
     private PlantationAssignmentEventListener plantationAssignmentEventListener;
 
     @Autowired
@@ -140,16 +135,13 @@ class ShipmentFeatureProfilingTest {
     private UserReplicaService userReplicaService;
 
     @MockBean
-    private PlantationAssignmentReplicaService plantationAssignmentReplicaService;
-
-    @MockBean
     private ShipmentReplicaSchemaInitializer schemaInitializer;
 
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-        reset(rabbitTemplate, harvestReplicaService, userReplicaService, plantationAssignmentReplicaService);
+        reset(rabbitTemplate, harvestReplicaService, userReplicaService);
         clearDatabase();
         seedAssignments();
     }
@@ -230,8 +222,6 @@ class ShipmentFeatureProfilingTest {
                 this::profileUserUpdatedConsumer));
         results.add(profile("Events", "User deleted consumer", "UserDeletedEventConsumer",
                 this::profileUserDeletedConsumer));
-        results.add(profile("Events", "Plantation replica consumer", "PlantationAssignmentEventConsumer",
-                this::profilePlantationReplicaConsumer));
         results.add(profile("Events", "Worker assignment listener", "PlantationAssignmentEventListener",
                 this::profilePlantationAssignmentListener));
         results.add(profile("Events", "Shipment outbound publisher", "ShipmentEventPublisher",
@@ -433,15 +423,6 @@ class ShipmentFeatureProfilingTest {
                 Instant.now()
         ));
         verify(userReplicaService).markDeleted(any(UserDeletedEvent.class));
-    }
-
-    private void profilePlantationReplicaConsumer() {
-        plantationAssignmentEventConsumer.onPlantationAssignment(plantationEvent(
-                "consumer-plantation-replica",
-                uuid("consumer-plantation-replica"),
-                "SUPIR"
-        ));
-        verify(plantationAssignmentReplicaService).applyAssignment(any(PlantationAssignmentEvent.class));
     }
 
     private void profilePlantationAssignmentListener() {
