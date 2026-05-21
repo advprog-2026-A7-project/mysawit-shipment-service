@@ -169,16 +169,16 @@ paths:
                     error: HARVEST_VALIDATION_FAILED
                     message: Duplicate harvest id in request: 60060060-0600-6006-0060-060060060060
         "503":
-          description: Harvest Service is unavailable or timed out
+          description: Harvest replica is not yet available for this harvest id
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
-                harvestServiceUnavailable:
+                harvestReplicaUnavailable:
                   value:
-                    error: HARVEST_SERVICE_UNAVAILABLE
-                    message: Harvest service is unavailable
+                    error: HARVEST_REPLICA_UNAVAILABLE
+                    message: Harvest data not yet replicated
 
   /api/shipments/available-supirs:
     get:

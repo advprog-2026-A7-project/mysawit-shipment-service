@@ -43,10 +43,10 @@ public class ShipmentExceptionHandler {
                 .body(buildError("HARVEST_VALIDATION_FAILED", ex.getMessage()));
     }
 
-    @ExceptionHandler(HarvestServiceUnavailableException.class)
-    public ResponseEntity<Map<String, String>> handleHarvestServiceUnavailable(HarvestServiceUnavailableException ex) {
+    @ExceptionHandler(HarvestReplicaUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleHarvestReplicaUnavailable(HarvestReplicaUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(buildError("HARVEST_SERVICE_UNAVAILABLE", ex.getMessage()));
+                .body(buildError("HARVEST_REPLICA_UNAVAILABLE", ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -12,8 +12,74 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-push:
+    name: Build & Push Image to Docker Hub
+    if: ${{ github.ref_name == 'main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Validate registry secrets
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${DOCKERHUB_USERNAME:-}" ] || missing+=("DOCKERHUB_USERNAME")
+          [ -n "${DOCKERHUB_TOKEN:-}" ] || missing+=("DOCKERHUB_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required Docker Hub secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build shipment JAR
+        run: ./gradlew --no-daemon clean test bootJar
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_SHA::12}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            azzelll/mysawit-shipment:${{ steps.meta.outputs.tag }}
+            azzelll/mysawit-shipment:latest
+          labels: |
+            com.mysawit.service=mysawit-shipment
+            com.mysawit.release=${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     name: Deploy Shipment Service (EC2 IPv6 Direct DB)
+    needs: build-push
     if: ${{ github.ref_name == 'main' }}
     runs-on: ubuntu-latest
     env:
@@ -24,6 +90,7 @@ jobs:
       REMOTE_APP_DIR: ${{ vars.REMOTE_APP_DIR }}
       SHIPMENT_HOST_PORT: ${{ vars.SHIPMENT_HOST_PORT }}
       JWT_EXPIRATION: ${{ vars.JWT_EXPIRATION }}
+      IMAGE_REF: azzelll/mysawit-shipment:${{ needs.build-push.outputs.image-tag }}
 
     steps:
       - name: Validate deployment inputs and secrets
@@ -84,23 +151,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: gradle
-
-      - name: Build shipment JAR
-        run: ./gradlew --no-daemon clean test bootJar
-
       - name: Set deploy metadata
         env:
           INPUT_JAVA_OPTS: ${{ vars.JAVA_OPTS }}
           INPUT_JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
         run: |
           set -euo pipefail
-          echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${{ needs.build-push.outputs.image-tag }}" >> "$GITHUB_ENV"
           echo "STAGING_PORT=${STAGING_PORT:-22}" >> "$GITHUB_ENV"
           echo "REMOTE_APP_DIR=${REMOTE_APP_DIR:-/home/${STAGING_USER}/apps/mysawit-shipment-service}" >> "$GITHUB_ENV"
           echo "SHIPMENT_HOST_PORT=${SHIPMENT_HOST_PORT:-8084}" >> "$GITHUB_ENV"
@@ -139,18 +196,9 @@ jobs:
           sanitize_single_line "JAVA_OPTS" "$JAVA_OPTS"
           sanitize_single_line "JAVA_TOOL_OPTIONS" "$JAVA_TOOL_OPTIONS"
 
-          mkdir -p release/build/libs release/scripts
-          shopt -s nullglob
-          jar_candidates=(build/libs/*.jar)
-          if [ "${#jar_candidates[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one boot JAR in build/libs but found ${#jar_candidates[@]}"
-            ls -la build/libs || true
-            exit 1
-          fi
-          cp Dockerfile release/Dockerfile
+          mkdir -p release/scripts
           cp docker-compose.monitoring.yml release/docker-compose.monitoring.yml
           cp -R monitoring release/monitoring
-          install -m 644 "${jar_candidates[0]}" release/build/libs/app.jar
           cp scripts/deploy-ec2.sh release/scripts/deploy-ec2.sh
           chmod 755 release/scripts/deploy-ec2.sh
 
@@ -202,7 +250,7 @@ jobs:
           set -euo pipefail
           SSH_OPTS="-i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=accept-new -p $STAGING_PORT"
           ssh $SSH_OPTS "$STAGING_USER@$STAGING_HOST" \
-            "export APP_HOME='$REMOTE_APP_DIR' RELEASE_DIR='$REMOTE_RELEASE_DIR' IMAGE_TAG='$IMAGE_TAG' APP_NAME='mysawit-shipment' CONTAINER_NAME='mysawit-shipment' APP_PORT='8084' HOST_PORT='$SHIPMENT_HOST_PORT' DEPLOY_LOG='$REMOTE_APP_DIR/deploy.log'; bash '$REMOTE_RELEASE_DIR/scripts/deploy-ec2.sh'"
+            "export APP_HOME='$REMOTE_APP_DIR' RELEASE_DIR='$REMOTE_RELEASE_DIR' IMAGE_REF='$IMAGE_REF' IMAGE_TAG='$IMAGE_TAG' APP_NAME='mysawit-shipment' CONTAINER_NAME='mysawit-shipment' APP_PORT='8084' HOST_PORT='$SHIPMENT_HOST_PORT' DEPLOY_LOG='$REMOTE_APP_DIR/deploy.log'; bash '$REMOTE_RELEASE_DIR/scripts/deploy-ec2.sh'"
 
       - name: Verify public health endpoint
         run: |
