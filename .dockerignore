@@ -9,7 +9,9 @@ build
 !build/libs/
 !build/libs/*.jar
 bin
+monitoring
 .context
+.kiro
 .env
 .env.example
 AGENTS.md

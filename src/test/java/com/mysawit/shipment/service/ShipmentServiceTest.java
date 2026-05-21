@@ -28,7 +28,7 @@ import com.mysawit.shipment.domain.ShipmentStatus;
 import com.mysawit.shipment.dto.CreateShipmentRequest;
 import com.mysawit.shipment.event.ShipmentEventPublisher;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
-import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
+import com.mysawit.shipment.exception.HarvestReplicaUnavailableException;
 import com.mysawit.shipment.exception.HarvestValidationException;
 import com.mysawit.shipment.exception.ShipmentInvalidTransitionException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
@@ -989,7 +989,7 @@ class ShipmentServiceTest {
     }
 
     @Test
-    void createShipmentFailsWhenHarvestServiceIsUnavailable() {
+    void createShipmentFailsWhenHarvestReplicaIsUnavailable() {
         CreateShipmentRequest request = new CreateShipmentRequest(
                 OWNER_42,
                 DESTINATION,
@@ -997,14 +997,14 @@ class ShipmentServiceTest {
         );
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
-                .thenThrow(new HarvestServiceUnavailableException("Harvest service is unavailable"));
+                .thenThrow(new HarvestReplicaUnavailableException("Harvest data not yet replicated"));
 
-        HarvestServiceUnavailableException exception = assertThrows(
-                HarvestServiceUnavailableException.class,
+        HarvestReplicaUnavailableException exception = assertThrows(
+                HarvestReplicaUnavailableException.class,
                 () -> shipmentService.createShipment(MANDOR_ID, request)
         );
 
-        assertEquals("Harvest service is unavailable", exception.getMessage());
+        assertEquals("Harvest data not yet replicated", exception.getMessage());
     }
 
     @Test

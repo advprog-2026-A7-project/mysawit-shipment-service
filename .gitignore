@@ -46,6 +46,9 @@ skills-lock.json
 .env
 .DS_Store
 
+# Kiro spec workspace (local-only)
+.kiro/
+
 # Exclude docs and evidence
 docs/
 SKALA_4_EVIDENCE.md

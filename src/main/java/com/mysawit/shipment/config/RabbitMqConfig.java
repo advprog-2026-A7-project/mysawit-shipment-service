@@ -1,16 +1,27 @@
 package com.mysawit.shipment.config;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.mysawit.shipment.event.HarvestEvent;
+import com.mysawit.shipment.event.PlantationAssignmentEvent;
+import com.mysawit.shipment.event.UserAssignmentEvent;
+import com.mysawit.shipment.event.UserDeletedEvent;
+import com.mysawit.shipment.event.UserRegisteredEvent;
+import com.mysawit.shipment.event.UserUpdatedEvent;
 
 @Configuration
 public class RabbitMqConfig {
@@ -140,7 +151,31 @@ public class RabbitMqConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+        DefaultClassMapper classMapper = new DefaultClassMapper();
+        classMapper.setTrustedPackages("*");
+
+        Map<String, Class<?>> idClassMapping = new HashMap<>();
+        // Harvest service publishes HarvestPayrollEvent on the harvest.exchange (routing key
+        // harvest.approved). The shipment service consumes it as HarvestEvent.
+        idClassMapping.put("com.mysawit.harvest.event.HarvestPayrollEvent", HarvestEvent.class);
+        // Identity service publishes user lifecycle events on the user.exchange.
+        idClassMapping.put("com.mysawit.identity.event.UserRegisteredEvent", UserRegisteredEvent.class);
+        idClassMapping.put("com.mysawit.identity.event.UserDeletedEvent", UserDeletedEvent.class);
+        // Identity service uses UserAssignedEvent for BURUH<->MANDOR assignment events; the
+        // shipment service models the same payload as UserAssignmentEvent.
+        idClassMapping.put("com.mysawit.identity.event.UserAssignedEvent", UserAssignmentEvent.class);
+        idClassMapping.put("com.mysawit.identity.event.UserAssignmentEvent", UserAssignmentEvent.class);
+        // No producer of a UserUpdatedEvent has been located in identity-service; the mapping is
+        // declared defensively in case a future producer publishes one with this type id.
+        idClassMapping.put("com.mysawit.identity.event.UserUpdatedEvent", UserUpdatedEvent.class);
+        // Plantation service publishes plantation assignment events as a HashMap (no __TypeId__),
+        // but the mapping is declared so a future strongly-typed publisher continues to deserialize.
+        idClassMapping.put("com.mysawit.plantation.event.PlantationAssignmentEvent", PlantationAssignmentEvent.class);
+        classMapper.setIdClassMapping(idClassMapping);
+
+        converter.setClassMapper(classMapper);
+        return converter;
     }
 
     @Bean
