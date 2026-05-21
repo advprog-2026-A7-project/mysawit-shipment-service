@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.mysawit.shipment.exception.HarvestServiceUnavailableException;
+import com.mysawit.shipment.exception.HarvestReplicaUnavailableException;
 import com.mysawit.shipment.exception.HarvestValidationException;
 import com.mysawit.shipment.exception.ShipmentForbiddenException;
 import com.mysawit.shipment.exception.ShipmentNotFoundException;
@@ -39,7 +39,7 @@ class ShipmentErrorHandlingTest {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String HARVEST_VALIDATION_FAILED = "HARVEST_VALIDATION_FAILED";
     private static final String HARVEST_NOT_FOUND_PREFIX = "Harvest not found: ";
-    private static final String HARVEST_SERVICE_UNAVAILABLE_MESSAGE = "Harvest service is unavailable";
+    private static final String HARVEST_REPLICA_UNAVAILABLE_MESSAGE = "Harvest data not yet replicated";
     private static final String JSON_ERROR = "$.error";
     private static final String JSON_MESSAGE = "$.message";
     private static final String CREATE_SHIPMENT_PATH = "/api/shipments";
@@ -125,14 +125,14 @@ class ShipmentErrorHandlingTest {
     }
 
     @Test
-    void getShipmentByIdReturnsHarvestServiceUnavailableErrorContract() throws Exception {
+    void getShipmentByIdReturnsHarvestReplicaUnavailableErrorContract() throws Exception {
         when(shipmentService.getShipmentByIdForSupirUser(WEIGHT_ID, SUPIR_ID))
-                .thenThrow(new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
+                .thenThrow(new HarvestReplicaUnavailableException(HARVEST_REPLICA_UNAVAILABLE_MESSAGE));
 
         performGetShipment(WEIGHT_ID)
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_SERVICE_UNAVAILABLE"))
-                .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
+                .andExpect(jsonPath(JSON_ERROR).value("HARVEST_REPLICA_UNAVAILABLE"))
+                .andExpect(jsonPath(JSON_MESSAGE).value(HARVEST_REPLICA_UNAVAILABLE_MESSAGE));
     }
 
     @Test
@@ -171,13 +171,13 @@ class ShipmentErrorHandlingTest {
     }
 
     @Test
-    void createShipmentReturnsHarvestServiceUnavailableErrorContract() throws Exception {
+    void createShipmentReturnsHarvestReplicaUnavailableErrorContract() throws Exception {
         when(shipmentService.createShipment(eq(MANDOR_ID), any()))
-                .thenThrow(new HarvestServiceUnavailableException(HARVEST_SERVICE_UNAVAILABLE_MESSAGE));
+                .thenThrow(new HarvestReplicaUnavailableException(HARVEST_REPLICA_UNAVAILABLE_MESSAGE));
 
         assertCreateShipmentError(
-                "HARVEST_SERVICE_UNAVAILABLE",
-                HARVEST_SERVICE_UNAVAILABLE_MESSAGE,
+                "HARVEST_REPLICA_UNAVAILABLE",
+                HARVEST_REPLICA_UNAVAILABLE_MESSAGE,
                 status().isServiceUnavailable()
         );
     }

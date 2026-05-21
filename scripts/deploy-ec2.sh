@@ -6,6 +6,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-mysawit-shipment}"
 APP_HOME="${APP_HOME:?APP_HOME is required}"
 RELEASE_DIR="${RELEASE_DIR:?RELEASE_DIR is required}"
 IMAGE_TAG="${IMAGE_TAG:?IMAGE_TAG is required}"
+IMAGE_REF="${IMAGE_REF:?IMAGE_REF is required, e.g. azzelll/mysawit-shipment:abcdef123456}"
 APP_PORT="${APP_PORT:-8084}"
 HOST_PORT="${HOST_PORT:-8084}"
 HEALTH_PATH="${HEALTH_PATH:-/actuator/health/readiness}"
@@ -16,7 +17,6 @@ CURRENT_LINK="${APP_HOME}/current"
 RUNTIME_ENV_FILE="${SHARED_DIR}/app.env"
 PREVIOUS_ENV_FILE="${SHARED_DIR}/app.env.previous"
 DEPLOY_LOG="${DEPLOY_LOG:-${APP_HOME}/deploy.log}"
-NEW_IMAGE="${APP_NAME}:${IMAGE_TAG}"
 PREVIOUS_IMAGE_ID=""
 ROLLBACK_ATTEMPTED=0
 
@@ -195,14 +195,9 @@ if [ "$HOST_PORT" != "$APP_PORT" ]; then
 fi
 
 require_file "$ENV_SOURCE_FILE"
-require_file "$RELEASE_DIR/Dockerfile"
 require_file "$RELEASE_DIR/docker-compose.monitoring.yml"
-if ! compgen -G "$RELEASE_DIR/build/libs/*.jar" > /dev/null; then
-  log "Required JAR missing in ${RELEASE_DIR}/build/libs"
-  exit 1
-fi
 
-PREVIOUS_IMAGE_ID="$(docker_cmd inspect --format '{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || docker_cmd image inspect --format '{{.Id}}' "${APP_NAME}:latest" 2>/dev/null || true)"
+PREVIOUS_IMAGE_ID="$(docker_cmd inspect --format '{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)"
 
 install -m 600 "$ENV_SOURCE_FILE" "$RUNTIME_ENV_FILE.new"
 if [ -f "$RUNTIME_ENV_FILE" ]; then
@@ -219,7 +214,7 @@ if [ -z "$DB_HOST" ]; then
   exit 1
 fi
 
-log "Deploying ${APP_NAME}:${IMAGE_TAG} from ${RELEASE_DIR}"
+log "Deploying ${IMAGE_REF} (release ${IMAGE_TAG}) from ${RELEASE_DIR}"
 log "Using Docker host networking on port ${APP_PORT}"
 log "Derived Supabase DB host: ${DB_HOST}"
 
@@ -238,12 +233,8 @@ else
   log "No IPv6 record found. Assuming IPv4 NAT64 or dual-stack."
 fi
 
-docker_cmd build --pull \
-  --label "com.mysawit.service=${APP_NAME}" \
-  --label "com.mysawit.release=${IMAGE_TAG}" \
-  -t "$NEW_IMAGE" \
-  -t "${APP_NAME}:latest" \
-  "$RELEASE_DIR"
+log "Pulling image ${IMAGE_REF}"
+docker_cmd pull "$IMAGE_REF"
 
 docker_cmd rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
@@ -255,7 +246,9 @@ docker_cmd run -d \
   --restart unless-stopped \
   --log-opt max-size=10m \
   --log-opt max-file=5 \
-  "$NEW_IMAGE" >/dev/null
+  --label "com.mysawit.service=${APP_NAME}" \
+  --label "com.mysawit.release=${IMAGE_TAG}" \
+  "$IMAGE_REF" >/dev/null
 
 log "Waiting for application readiness on http://127.0.0.1:${APP_PORT}${HEALTH_PATH}"
 for attempt in $(seq 1 36); do
@@ -287,13 +280,13 @@ log "Listening sockets for port ${APP_PORT}"
 ss -ltn "( sport = :${APP_PORT} )" || true
 container_status
 
-CURRENT_IMAGE_ID="$(docker_cmd image inspect --format '{{.Id}}' "$NEW_IMAGE")"
+CURRENT_IMAGE_ID="$(docker_cmd image inspect --format '{{.Id}}' "$IMAGE_REF" 2>/dev/null || true)"
 while IFS= read -r image_id; do
   [ -z "$image_id" ] && continue
   if [ "$image_id" != "$CURRENT_IMAGE_ID" ] && [ "$image_id" != "$PREVIOUS_IMAGE_ID" ]; then
     docker_cmd rmi -f "$image_id" >/dev/null 2>&1 || true
   fi
-done < <(docker_cmd image ls "$APP_NAME" --format '{{.ID}}' | sort -u)
+done < <(docker_cmd image ls "azzelll/mysawit-shipment" --format '{{.ID}}' | sort -u)
 
 docker_cmd image prune -f >/dev/null 2>&1 || true
 find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf >/dev/null 2>&1 || true

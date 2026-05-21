@@ -18,7 +18,7 @@ public class HarvestEventConsumer {
         this.harvestReplicaService = harvestReplicaService;
     }
 
-    @RabbitListener(queues = "${shipment.rabbitmq.queues.harvest-events:shipment.harvest.events.queue}")
+    @RabbitListener(queues = "${shipment.rabbitmq.queues.harvest-events:shipment.harvest-events.queue}")
     public void onHarvestEvent(HarvestEvent event) {
         log.debug("Received harvest event harvestId={} status={}", event.getHarvestId(), event.getStatus());
         harvestReplicaService.upsertHarvest(event);

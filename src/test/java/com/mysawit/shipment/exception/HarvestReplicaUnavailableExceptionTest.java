@@ -4,16 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import org.junit.jupiter.api.Test;
 
-class HarvestServiceUnavailableExceptionTest {
+class HarvestReplicaUnavailableExceptionTest {
 
     @Test
     void constructorStoresCause() {
         RuntimeException cause = new RuntimeException("down");
 
-        HarvestServiceUnavailableException exception =
-                new HarvestServiceUnavailableException("Harvest service is unavailable", cause);
+        HarvestReplicaUnavailableException exception =
+                new HarvestReplicaUnavailableException("Harvest data not yet replicated", cause);
 
-        assertEquals("Harvest service is unavailable", exception.getMessage());
+        assertEquals("Harvest data not yet replicated", exception.getMessage());
         assertSame(cause, exception.getCause());
     }
 }
