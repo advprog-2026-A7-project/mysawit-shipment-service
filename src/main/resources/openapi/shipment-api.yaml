@@ -129,7 +129,7 @@ paths:
                 harvestValidationFailed:
                   value:
                     error: HARVEST_VALIDATION_FAILED
-                    message: Harvest status must be Approved: 60060060-0600-6006-0060-060060060060
+                    message: "Harvest status must be Approved: 60060060-0600-6006-0060-060060060060"
         "404":
           description: Requested harvest was not found
           content:
@@ -140,7 +140,7 @@ paths:
                 harvestNotFound:
                   value:
                     error: HARVEST_VALIDATION_FAILED
-                    message: Harvest not found: 60060060-0600-6006-0060-060060060060
+                    message: "Harvest not found: 60060060-0600-6006-0060-060060060060"
         "401":
           description: Missing or invalid JWT
           content:
@@ -163,11 +163,11 @@ paths:
                 harvestAlreadyClaimed:
                   value:
                     error: HARVEST_VALIDATION_FAILED
-                    message: Harvest already claimed: 60060060-0600-6006-0060-060060060060
+                    message: "Harvest already claimed: 60060060-0600-6006-0060-060060060060"
                 duplicateHarvestId:
                   value:
                     error: HARVEST_VALIDATION_FAILED
-                    message: Duplicate harvest id in request: 60060060-0600-6006-0060-060060060060
+                    message: "Duplicate harvest id in request: 60060060-0600-6006-0060-060060060060"
         "503":
           description: Harvest replica is not yet available for this harvest id
           content:
@@ -264,7 +264,7 @@ paths:
                 notFound:
                   value:
                     error: NOT_FOUND
-                    message: Shipment not found with id: 8f2189a4-a032-495a-8138-cbf5e83f9c89
+                    message: "Shipment not found with id: 8f2189a4-a032-495a-8138-cbf5e83f9c89"
 
   /api/shipments/{id}/status:
     patch:

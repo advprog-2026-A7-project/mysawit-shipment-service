@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.mysawit.shipment.model.WorkerPlantationAssignment;
 import com.mysawit.shipment.repository.WorkerPlantationAssignmentRepository;
+import com.mysawit.shipment.service.WorkerAssignmentLookupService;
 
 class PlantationAssignmentEventListenerTest {
 
@@ -26,12 +27,17 @@ class PlantationAssignmentEventListenerTest {
     private static final String ROLE_SUPIR = "SUPIR";
 
     private WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
+    private WorkerAssignmentLookupService workerAssignmentLookup;
     private PlantationAssignmentEventListener listener;
 
     @BeforeEach
     void setUp() {
         workerPlantationAssignmentRepository = mock(WorkerPlantationAssignmentRepository.class);
-        listener = new PlantationAssignmentEventListener(workerPlantationAssignmentRepository);
+        workerAssignmentLookup = mock(WorkerAssignmentLookupService.class);
+        listener = new PlantationAssignmentEventListener(
+                workerPlantationAssignmentRepository,
+                workerAssignmentLookup
+        );
     }
 
     @Test

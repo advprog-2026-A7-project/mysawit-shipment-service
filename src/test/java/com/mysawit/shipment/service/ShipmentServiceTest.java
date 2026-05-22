@@ -1,8 +1,6 @@
 package com.mysawit.shipment.service;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,6 +67,7 @@ class ShipmentServiceTest {
     private HarvestReplicaService harvestReplicaService;
     private ShipmentEventPublisher shipmentEventPublisher;
     private WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
+    private com.mysawit.shipment.service.WorkerAssignmentLookupService workerAssignmentLookup;
     private ShipmentService shipmentService;
 
     @BeforeEach
@@ -76,16 +76,18 @@ class ShipmentServiceTest {
         harvestReplicaService = mock(HarvestReplicaService.class);
         shipmentEventPublisher = mock(ShipmentEventPublisher.class);
         workerPlantationAssignmentRepository = mock(WorkerPlantationAssignmentRepository.class);
+        workerAssignmentLookup = mock(com.mysawit.shipment.service.WorkerAssignmentLookupService.class);
         shipmentService = new ShipmentService(
                 shipmentRepository,
                 harvestReplicaService,
                 shipmentEventPublisher,
                 workerPlantationAssignmentRepository,
+                workerAssignmentLookup,
                 400.0
         );
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
+        when(workerAssignmentLookup.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
                 .thenReturn(Optional.of(assignment(MANDOR_ID, ROLE_MANDOR, "Mandor One", PLANTATION_ID)));
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
+        when(workerAssignmentLookup.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
                 .thenReturn(Optional.of(assignment(OWNER_42, ROLE_SUPIR, "Supir One", PLANTATION_ID)));
     }
 
@@ -110,16 +112,7 @@ class ShipmentServiceTest {
     @Test
     void getShipmentsBySupirUserIdWithFiltersDelegatesDateWindow() {
         LocalDate date = LocalDate.of(2026, 4, 14);
-        OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
-        when(shipmentRepository.findWithFilters(
-                OWNER_42.toString(),
-                null,
-                ShipmentStatus.MANDOR_REJECTED.name(),
-                null,
-                null,
-                from,
-                from.plusDays(1)
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsBySupirUserId(
                 OWNER_42,
@@ -132,15 +125,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsBySupirUserIdWithFiltersAllowsMissingFilters() {
-        when(shipmentRepository.findWithFilters(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsBySupirUserId(null, null, null);
 
@@ -149,15 +134,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsByMandorUserIdWithFiltersTrimsBlankSupirName() {
-        when(shipmentRepository.findWithFilters(
-                OWNER_42.toString(),
-                MANDOR_ID.toString(),
-                ShipmentStatus.MEMUAT.name(),
-                null,
-                null,
-                null,
-                null
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsByMandorUserId(
                 MANDOR_ID,
@@ -172,15 +149,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsByMandorUserIdWithFiltersAllowsMissingIdsAndStatus() {
-        when(shipmentRepository.findWithFilters(
-                null,
-                null,
-                null,
-                null,
-                "Supir",
-                null,
-                null
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsByMandorUserId(
                 null,
@@ -195,15 +164,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsForAdminWithFiltersTrimsMandorName() {
-        when(shipmentRepository.findWithFilters(
-                null,
-                null,
-                ShipmentStatus.MANDOR_APPROVED.name(),
-                "Mandor",
-                null,
-                null,
-                null
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsForAdmin(" Mandor ", null, ShipmentStatus.MANDOR_APPROVED);
 
@@ -212,15 +173,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentsForAdminDefaultsToMandorApprovedWhenStatusIsMissing() {
-        when(shipmentRepository.findWithFilters(
-                null,
-                null,
-                ShipmentStatus.MANDOR_APPROVED.name(),
-                null,
-                null,
-                null,
-                null
-        )).thenReturn(List.of(new Shipment()));
+        when(shipmentRepository.findAll(anyShipmentSpecification())).thenReturn(List.of(new Shipment()));
 
         List<Shipment> result = shipmentService.getShipmentsForAdmin(null, null, null);
 
@@ -245,7 +198,7 @@ class ShipmentServiceTest {
     @Test
     void getShipmentByIdReturnsEntity() {
         Shipment shipment = new Shipment();
-        when(shipmentRepository.findById(ID_1)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_1)).thenReturn(Optional.of(shipment));
 
         Shipment result = shipmentService.getShipmentById(ID_1);
 
@@ -254,7 +207,7 @@ class ShipmentServiceTest {
 
     @Test
     void getShipmentByIdThrowsWhenMissing() {
-        when(shipmentRepository.findById(ID_1)).thenReturn(Optional.empty());
+        when(shipmentRepository.findWithItemsById(ID_1)).thenReturn(Optional.empty());
 
         ShipmentNotFoundException exception = assertThrows(ShipmentNotFoundException.class, () -> shipmentService.getShipmentById(ID_1));
 
@@ -266,7 +219,7 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_3);
         shipment.setSupirUserId(OWNER_42);
-        when(shipmentRepository.findById(ID_3)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_3)).thenReturn(Optional.of(shipment));
 
         Shipment result = shipmentService.getShipmentByIdForSupirUser(ID_3, OWNER_42);
 
@@ -278,7 +231,7 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_4);
         shipment.setSupirUserId(OWNER_99);
-        when(shipmentRepository.findById(ID_4)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_4)).thenReturn(Optional.of(shipment));
 
         ShipmentForbiddenException exception = assertThrows(
                 ShipmentForbiddenException.class,
@@ -294,7 +247,7 @@ class ShipmentServiceTest {
         shipment.setId(ID_7);
         shipment.setSupirUserId(OWNER_42);
         shipment.setStatus(ShipmentStatus.MEMUAT);
-        when(shipmentRepository.findById(ID_7)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_7)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.updateShipmentStatus(ID_7, OWNER_42, ShipmentStatus.MENGIRIM);
@@ -315,7 +268,7 @@ class ShipmentServiceTest {
         shipment.setStatus(ShipmentStatus.MENGIRIM);
         shipment.getItems().add(shipmentItem(shipment, HARVEST_A, 200.0));
         shipment.getItems().add(shipmentItem(shipment, HARVEST_B, 120.0));
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.updateShipmentStatus(ID_11, OWNER_42, ShipmentStatus.TIBA);
@@ -332,7 +285,7 @@ class ShipmentServiceTest {
         shipment.setId(ID_8);
         shipment.setSupirUserId(OWNER_42);
         shipment.setStatus(ShipmentStatus.MEMUAT);
-        when(shipmentRepository.findById(ID_8)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_8)).thenReturn(Optional.of(shipment));
 
         ShipmentInvalidTransitionException exception = assertThrows(
                 ShipmentInvalidTransitionException.class,
@@ -348,7 +301,7 @@ class ShipmentServiceTest {
         shipment.setId(ID_9);
         shipment.setSupirUserId(OWNER_42);
         shipment.setStatus(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_9)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_9)).thenReturn(Optional.of(shipment));
 
         ShipmentInvalidTransitionException exception = assertThrows(
                 ShipmentInvalidTransitionException.class,
@@ -364,7 +317,7 @@ class ShipmentServiceTest {
         shipment.setId(ID_10);
         shipment.setSupirUserId(OWNER_99);
         shipment.setStatus(ShipmentStatus.MEMUAT);
-        when(shipmentRepository.findById(ID_10)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_10)).thenReturn(Optional.of(shipment));
 
         ShipmentForbiddenException exception = assertThrows(
                 ShipmentForbiddenException.class,
@@ -382,7 +335,7 @@ class ShipmentServiceTest {
         shipment.setMandorUserId(MANDOR_ID);
         shipment.setTotalKg(100.0);
         shipment.setStatus(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.approveShipmentByAdmin(ID_11, ShipmentStatus.ADMIN_APPROVED);
@@ -402,7 +355,7 @@ class ShipmentServiceTest {
         shipment.setMandorUserId(MANDOR_ID);
         shipment.setTotalKg(100.0);
         shipment.setStatus(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.approveShipmentByAdmin(
@@ -425,7 +378,7 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_11);
         shipment.setStatus(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -440,7 +393,7 @@ class ShipmentServiceTest {
         Shipment shipment = new Shipment();
         shipment.setId(ID_11);
         shipment.setStatus(ShipmentStatus.MENGIRIM);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         ShipmentInvalidTransitionException exception = assertThrows(
                 ShipmentInvalidTransitionException.class,
@@ -453,7 +406,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorApprovesArrivedShipmentAndPublishesPayrollEvent() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.approveShipmentByMandor(
@@ -470,7 +423,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorRejectsWithReasonAndPublishesNotification() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.approveShipmentByMandor(
@@ -488,7 +441,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorRejectsWrongMandor() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         ShipmentForbiddenException exception = assertThrows(
                 ShipmentForbiddenException.class,
@@ -506,7 +459,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorRequiresReasonForRejection() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -524,7 +477,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorRejectsInvalidDecision() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.TIBA);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         ShipmentInvalidTransitionException exception = assertThrows(
                 ShipmentInvalidTransitionException.class,
@@ -542,7 +495,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByMandorRequiresArrivedShipment() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.MENGIRIM);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         ShipmentInvalidTransitionException exception = assertThrows(
                 ShipmentInvalidTransitionException.class,
@@ -560,7 +513,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByAdminRejectsShipmentWithReason() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
         when(shipmentRepository.save(shipment)).thenReturn(shipment);
 
         Shipment result = shipmentService.approveShipmentByAdmin(
@@ -579,7 +532,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByAdminRequiresReasonForRejectedDecision() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -592,7 +545,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByAdminRequiresKgForPartialRejection() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -610,7 +563,7 @@ class ShipmentServiceTest {
     @Test
     void approveShipmentByAdminRejectsPartialKgAboveTotal() {
         Shipment shipment = sampleReviewableShipment(ShipmentStatus.MANDOR_APPROVED);
-        when(shipmentRepository.findById(ID_11)).thenReturn(Optional.of(shipment));
+        when(shipmentRepository.findWithItemsById(ID_11)).thenReturn(Optional.of(shipment));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -636,8 +589,8 @@ class ShipmentServiceTest {
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_B))
                 .thenReturn(harvestDetails(HARVEST_B, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -677,8 +630,8 @@ class ShipmentServiceTest {
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_B))
                 .thenReturn(harvestDetails(HARVEST_B, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -695,7 +648,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -720,8 +673,8 @@ class ShipmentServiceTest {
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_B))
                 .thenReturn(harvestDetails(HARVEST_B, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_B)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Shipment result = shipmentService.createShipment(MANDOR_ID, request);
@@ -870,7 +823,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
+        when(workerAssignmentLookup.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
                 .thenReturn(Optional.empty());
 
         HarvestValidationException exception = assertThrows(
@@ -891,7 +844,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
+        when(workerAssignmentLookup.findByUserIdAndRole(MANDOR_ID, ROLE_MANDOR))
                 .thenReturn(Optional.of(assignment(MANDOR_ID, ROLE_MANDOR, "Mandor One", OTHER_PLANTATION_ID)));
 
         HarvestValidationException exception = assertThrows(
@@ -912,7 +865,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
+        when(workerAssignmentLookup.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
                 .thenReturn(Optional.empty());
 
         HarvestValidationException exception = assertThrows(
@@ -933,7 +886,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(workerPlantationAssignmentRepository.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
+        when(workerAssignmentLookup.findByUserIdAndRole(OWNER_42, ROLE_SUPIR))
                 .thenReturn(Optional.of(assignment(OWNER_42, ROLE_SUPIR, "Supir One", OTHER_PLANTATION_ID)));
 
         HarvestValidationException exception = assertThrows(
@@ -954,7 +907,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(true);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of(HARVEST_A));
 
         HarvestValidationException exception = assertThrows(
                 HarvestValidationException.class,
@@ -975,7 +928,7 @@ class ShipmentServiceTest {
 
         when(harvestReplicaService.getHarvestById(MANDOR_ID, HARVEST_A))
                 .thenReturn(harvestDetails(HARVEST_A, APPROVED_STATUS));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
         when(shipmentRepository.save(any(Shipment.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_shipment_items_harvest_id"));
 
@@ -1025,7 +978,7 @@ class ShipmentServiceTest {
                         HARVEST_NOT_FOUND_PREFIX + HARVEST_C,
                         HttpStatus.NOT_FOUND
                 ));
-        when(shipmentRepository.existsByItemsHarvestId(HARVEST_A)).thenReturn(false);
+        when(shipmentRepository.findClaimedHarvestIds(any())).thenReturn(java.util.List.of());
 
         HarvestValidationException exception = assertThrows(
                 HarvestValidationException.class,
@@ -1055,6 +1008,19 @@ class ShipmentServiceTest {
         assertEquals("Duplicate harvest id in request: " + HARVEST_A, exception.getMessage());
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         verifyNoInteractions(harvestReplicaService);
+    }
+
+    @Test
+    void createShipmentRejectsEmptyItemsBeforePersisting() {
+        CreateShipmentRequest request = new CreateShipmentRequest(OWNER_42, DESTINATION, List.of());
+
+        HarvestValidationException exception = assertThrows(
+                HarvestValidationException.class,
+                () -> shipmentService.createShipment(MANDOR_ID, request)
+        );
+
+        assertEquals("Mandor must be assigned to the same plantation", exception.getMessage());
+        verify(shipmentRepository, never()).save(any(Shipment.class));
     }
 
     private ShipmentItem shipmentItem(Shipment shipment, UUID harvestId, double weightKg) {
@@ -1110,5 +1076,10 @@ class ShipmentServiceTest {
         assignment.setName(name);
         assignment.setPlantationId(plantationId);
         return assignment;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Specification<Shipment> anyShipmentSpecification() {
+        return any(Specification.class);
     }
 }
