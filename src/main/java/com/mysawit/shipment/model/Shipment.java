@@ -21,6 +21,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "shipments", indexes = {
@@ -68,6 +69,7 @@ public class Shipment {
     @Column(nullable = false)
     private ShipmentStatus status = ShipmentStatus.MEMUAT;
     @OneToMany(mappedBy = "shipment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<ShipmentItem> items = new ArrayList<>();
 
     @Column(name = "created_at")

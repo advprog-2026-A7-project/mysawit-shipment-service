@@ -11,14 +11,20 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mysawit.shipment.config.RabbitMqConfig;
 import com.mysawit.shipment.model.WorkerPlantationAssignment;
 import com.mysawit.shipment.repository.WorkerPlantationAssignmentRepository;
+import com.mysawit.shipment.service.WorkerAssignmentLookupService;
 
 @Component
 public class PlantationAssignmentEventListener {
 
     private final WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
+    private final WorkerAssignmentLookupService workerAssignmentLookup;
 
-    public PlantationAssignmentEventListener(WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository) {
+    public PlantationAssignmentEventListener(
+            WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository,
+            WorkerAssignmentLookupService workerAssignmentLookup
+    ) {
         this.workerPlantationAssignmentRepository = workerPlantationAssignmentRepository;
+        this.workerAssignmentLookup = workerAssignmentLookup;
     }
 
     @Transactional
@@ -28,7 +34,9 @@ public class PlantationAssignmentEventListener {
             return;
         }
         if (isUnassign(event)) {
-            workerPlantationAssignmentRepository.deleteById(parseUuid(event.getUserId()));
+            UUID userId = parseUuid(event.getUserId());
+            workerPlantationAssignmentRepository.deleteById(userId);
+            workerAssignmentLookup.evictUser(userId);
             return;
         }
         if (!hasAssignmentTarget(event)) {
@@ -46,6 +54,7 @@ public class PlantationAssignmentEventListener {
         assignment.setUpdatedAt(resolveOccurredAt(event));
 
         workerPlantationAssignmentRepository.save(assignment);
+        workerAssignmentLookup.evictUser(userId);
     }
 
     private boolean hasIdentity(PlantationAssignmentEvent event) {
