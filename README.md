@@ -175,6 +175,26 @@ write endpoints require ordered state setup:
 - MANDOR approves or rejects after `TIBA`.
 - ADMIN approves, rejects, or partially rejects after `MANDOR_APPROVED`.
 
+### Laporan Profiling JMeter (Before/After)
+
+Laporan lengkap profiling 1000 request via JMeter ada di
+[`tests/load/jmeter/README.md`](tests/load/jmeter/README.md). Isinya:
+
+- Perbandingan metrik before vs after untuk tiga run (baseline, tuning P0,
+  refactor P1+P2)
+- Breakdown error dan latensi per endpoint untuk SUPIR, MANDOR, dan ADMIN
+- Analisis akar masalah error rate 78% di run awal (Hikari pool exhaustion)
+- Daftar lengkap perubahan yang diterapkan — sizing Hikari, OSIV off, batch
+  fetch, read-only transaction, JPA Specifications, cache Caffeine, dan seed
+  data worker assignment
+- Cara reproduce profiling, termasuk JMX plan, generator JWT, dan runner script
+
+Ringkasan hasil: error rate turun dari **78.1%** ke **0.2%** pada beban yang
+sama (1000 request), throughput naik dari 27.7 ke 32.1 req/s. Sisa latensi
+sekarang didominasi RTT jaringan Indonesia → Supabase Tokyo. Langkah
+high-impact berikutnya adalah migrasi region Supabase (mis. ke
+`ap-southeast-1` Singapore).
+
 ### Observability
 
 Runtime profiling can be supported through Actuator and Prometheus:
