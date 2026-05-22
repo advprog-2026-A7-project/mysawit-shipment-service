@@ -1,6 +1,7 @@
 package com.mysawit.shipment.repository;
 
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.data.jpa.domain.Specification;
@@ -19,6 +20,8 @@ import jakarta.persistence.criteria.JoinType;
  * inference issues.
  */
 public final class ShipmentSpecifications {
+
+    private static final String FIELD_CREATED_AT = "createdAt";
 
     private ShipmentSpecifications() {
     }
@@ -50,13 +53,13 @@ public final class ShipmentSpecifications {
             }
             if (from != null && to != null) {
                 return cb.and(
-                        cb.greaterThanOrEqualTo(root.get("createdAt"), from),
-                        cb.lessThan(root.get("createdAt"), to)
+                        cb.greaterThanOrEqualTo(root.get(FIELD_CREATED_AT), from),
+                        cb.lessThan(root.get(FIELD_CREATED_AT), to)
                 );
             }
             return from != null
-                    ? cb.greaterThanOrEqualTo(root.get("createdAt"), from)
-                    : cb.lessThan(root.get("createdAt"), to);
+                    ? cb.greaterThanOrEqualTo(root.get(FIELD_CREATED_AT), from)
+                    : cb.lessThan(root.get(FIELD_CREATED_AT), to);
         };
     }
 
@@ -79,7 +82,7 @@ public final class ShipmentSpecifications {
             if (value == null || value.isBlank()) {
                 return null;
             }
-            String pattern = "%" + value.toLowerCase() + "%";
+            String pattern = "%" + value.toLowerCase(Locale.ROOT) + "%";
             return cb.like(cb.lower(root.get(field)), pattern);
         };
     }
