@@ -26,6 +26,36 @@ values (
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid
 );
 
+-- Replicated worker plantation assignments. Required so that the
+-- MANDOR-only endpoints (/available-supirs, POST /api/shipments) can be
+-- profiled against a non-empty result set.
+create table if not exists public.worker_plantation_assignments (
+    user_id uuid primary key,
+    role varchar(16) not null,
+    name varchar(100),
+    plantation_id varchar(64) not null,
+    last_event_id varchar(80),
+    updated_at timestamptz
+);
+
+with seed_params as (
+    select mandor_user_id, supir_user_id from _shipment_seed_params
+)
+insert into public.worker_plantation_assignments
+    (user_id, role, name, plantation_id, last_event_id, updated_at)
+select mandor_user_id, 'MANDOR', 'Mandor Seed', 'dummy-plantation', 'seed-mandor', now()
+from seed_params
+union all
+select supir_user_id, 'SUPIR', 'Supir Seed', 'dummy-plantation', 'seed-supir', now()
+from seed_params
+on conflict (user_id) do update
+set
+    role = excluded.role,
+    name = excluded.name,
+    plantation_id = excluded.plantation_id,
+    last_event_id = excluded.last_event_id,
+    updated_at = excluded.updated_at;
+
 -- Make sure the tables/columns required by the current entities exist.
 create table if not exists public.shipments (
     id uuid primary key default gen_random_uuid()
