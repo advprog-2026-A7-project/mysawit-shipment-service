@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -12,6 +13,8 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,7 @@ import com.mysawit.shipment.model.Shipment;
 import com.mysawit.shipment.model.ShipmentItem;
 import com.mysawit.shipment.model.WorkerPlantationAssignment;
 import com.mysawit.shipment.repository.ShipmentRepository;
+import com.mysawit.shipment.repository.ShipmentSpecifications;
 import com.mysawit.shipment.repository.WorkerPlantationAssignmentRepository;
 
 @Service
@@ -64,43 +68,42 @@ public class ShipmentService {
     private final ShipmentEventPublisher shipmentEventPublisher;
     private final ShipmentRepository shipmentRepository;
     private final WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository;
+    private final WorkerAssignmentLookupService workerAssignmentLookup;
     private final double maxWeightKg;
-    
+
     public ShipmentService(
             ShipmentRepository shipmentRepository,
             HarvestReplicaService harvestReplicaService,
             ShipmentEventPublisher shipmentEventPublisher,
             WorkerPlantationAssignmentRepository workerPlantationAssignmentRepository,
+            WorkerAssignmentLookupService workerAssignmentLookup,
             @Value("${shipment.max-weight-kg:400}") double maxWeightKg
     ) {
         this.shipmentRepository = shipmentRepository;
         this.harvestReplicaService = harvestReplicaService;
         this.shipmentEventPublisher = shipmentEventPublisher;
         this.workerPlantationAssignmentRepository = workerPlantationAssignmentRepository;
+        this.workerAssignmentLookup = workerAssignmentLookup;
         this.maxWeightKg = maxWeightKg;
     }
     
+    @Transactional(readOnly = true)
     public List<Shipment> getAllShipments() {
         return shipmentRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public List<Shipment> getShipmentsBySupirUserId(UUID supirUserId) {
         return shipmentRepository.findBySupirUserId(supirUserId);
     }
 
+    @Transactional(readOnly = true)
     public List<Shipment> getShipmentsBySupirUserId(UUID supirUserId, LocalDate date, ShipmentStatus status) {
         DateWindow dateWindow = DateWindow.from(date);
-        return shipmentRepository.findWithFilters(
-                supirUserId != null ? supirUserId.toString() : null,
-                null,
-                status != null ? status.name() : null,
-                null,
-                null,
-                dateWindow.from(),
-                dateWindow.to()
-        );
+        return shipmentRepository.findAll(buildSpec(supirUserId, null, status, null, null, dateWindow));
     }
 
+    @Transactional(readOnly = true)
     public List<Shipment> getShipmentsByMandorUserId(
             UUID mandorUserId,
             UUID supirUserId,
@@ -109,31 +112,35 @@ public class ShipmentService {
             ShipmentStatus status
     ) {
         DateWindow dateWindow = DateWindow.from(date);
-        return shipmentRepository.findWithFilters(
-                supirUserId != null ? supirUserId.toString() : null,
-                mandorUserId != null ? mandorUserId.toString() : null,
-                status != null ? status.name() : null,
-                null,
-                trimToNull(supirName),
-                dateWindow.from(),
-                dateWindow.to()
-        );
+        return shipmentRepository.findAll(buildSpec(supirUserId, mandorUserId, status, null, trimToNull(supirName), dateWindow));
     }
 
+    @Transactional(readOnly = true)
     public List<Shipment> getShipmentsForAdmin(String mandorName, LocalDate date, ShipmentStatus status) {
         DateWindow dateWindow = DateWindow.from(date);
         ShipmentStatus effectiveStatus = status == null ? ShipmentStatus.MANDOR_APPROVED : status;
-        return shipmentRepository.findWithFilters(
-                null,
-                null,
-                effectiveStatus.name(),
-                trimToNull(mandorName),
-                null,
-                dateWindow.from(),
-                dateWindow.to()
-        );
+        return shipmentRepository.findAll(buildSpec(null, null, effectiveStatus, trimToNull(mandorName), null, dateWindow));
     }
 
+    private static org.springframework.data.jpa.domain.Specification<Shipment> buildSpec(
+            UUID supirUserId,
+            UUID mandorUserId,
+            ShipmentStatus status,
+            String mandorName,
+            String supirName,
+            DateWindow dateWindow
+    ) {
+        return org.springframework.data.jpa.domain.Specification
+                .where(com.mysawit.shipment.repository.ShipmentSpecifications.withItems())
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.bySupirUserId(supirUserId))
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.byMandorUserId(mandorUserId))
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.byStatus(status))
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.byMandorNameLike(mandorName))
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.bySupirNameLike(supirName))
+                .and(com.mysawit.shipment.repository.ShipmentSpecifications.createdBetween(dateWindow.from(), dateWindow.to()));
+    }
+
+    @Transactional(readOnly = true)
     public List<WorkerPlantationAssignment> getSupirsForMandor(UUID mandorUserId, String name) {
         WorkerPlantationAssignment mandorAssignment =
                 resolveWorkerAssignment(mandorUserId, ROLE_MANDOR, ERR_MANDOR_NOT_ASSIGNED);
@@ -143,12 +150,14 @@ public class ShipmentService {
                 trimToNull(name)
         );
     }
-    
+
+    @Transactional(readOnly = true)
     public Shipment getShipmentById(UUID id) {
-        return shipmentRepository.findById(id)
+        return shipmentRepository.findWithItemsById(id)
                 .orElseThrow(() -> new ShipmentNotFoundException(ERR_NOT_FOUND_PREFIX + id));
     }
 
+    @Transactional(readOnly = true)
     public Shipment getShipmentByIdForSupirUser(UUID id, UUID requesterSupirUserId) {
         Shipment shipment = getShipmentById(id);
         ensureOwnedByRequester(shipment, requesterSupirUserId);
@@ -283,6 +292,7 @@ public class ShipmentService {
 
     private AssignmentPair validateHarvests(UUID mandorUserId, CreateShipmentRequest request) {
         ensureUniqueHarvestIds(request.items());
+        ensureNoHarvestAlreadyClaimed(request.items());
         String plantationId = null;
         for (CreateShipmentRequest.HarvestItem item : request.items()) {
             UUID harvestId = item.harvestId();
@@ -291,6 +301,20 @@ public class ShipmentService {
             plantationId = resolveShipmentPlantation(plantationId, harvest.plantationId());
         }
         return ensureSamePlantationAssignments(mandorUserId, request.supirUserId(), plantationId);
+    }
+
+    private void ensureNoHarvestAlreadyClaimed(List<CreateShipmentRequest.HarvestItem> items) {
+        Set<UUID> harvestIds = new LinkedHashSet<>();
+        for (CreateShipmentRequest.HarvestItem item : items) {
+            harvestIds.add(item.harvestId());
+        }
+        if (harvestIds.isEmpty()) {
+            return;
+        }
+        List<UUID> claimed = shipmentRepository.findClaimedHarvestIds(harvestIds);
+        if (!claimed.isEmpty()) {
+            throw HarvestValidationException.conflict(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + claimed.get(0));
+        }
     }
 
     private void ensureUniqueHarvestIds(List<CreateShipmentRequest.HarvestItem> items) {
@@ -312,9 +336,6 @@ public class ShipmentService {
         }
         if (!REQUIRED_HARVEST_STATUS.equals(normalizeHarvestStatus(harvest.status()))) {
             throw HarvestValidationException.badRequest(ERR_HARVEST_NOT_APPROVED_PREFIX + harvestId);
-        }
-        if (shipmentRepository.existsByItemsHarvestId(harvestId)) {
-            throw HarvestValidationException.conflict(ERR_HARVEST_ALREADY_CLAIMED_PREFIX + harvestId);
         }
     }
 
@@ -344,7 +365,7 @@ public class ShipmentService {
     }
 
     private WorkerPlantationAssignment resolveWorkerAssignment(UUID userId, String role, String missingMessage) {
-        return workerPlantationAssignmentRepository.findByUserIdAndRole(userId, role)
+        return workerAssignmentLookup.findByUserIdAndRole(userId, role)
                 .orElseThrow(() -> HarvestValidationException.badRequest(missingMessage));
     }
 
