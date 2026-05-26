@@ -95,9 +95,18 @@ set
     destination = coalesce(nullif(destination, ''), 'Pabrik Sawit Dummy'),
     total_kg = coalesce(total_kg, 1),
     status = case
-        when status in ('MEMUAT', 'MENGIRIM', 'TIBA', 'ADMIN_APPROVED', 'PARTIALLY_REJECTED') then status
+        when status in (
+            'MEMUAT',
+            'MENGIRIM',
+            'TIBA',
+            'MANDOR_APPROVED',
+            'MANDOR_REJECTED',
+            'ADMIN_APPROVED',
+            'ADMIN_REJECTED',
+            'PARTIALLY_REJECTED'
+        ) then status
         when status = 'IN_TRANSIT' then 'MENGIRIM'
-        when status in ('DELIVERED', 'MANDOR_APPROVED') then 'TIBA'
+        when status = 'DELIVERED' then 'TIBA'
         else 'MEMUAT'
     end,
     created_at = coalesce(created_at, now()),
@@ -116,7 +125,16 @@ alter table public.shipments
 
 alter table public.shipments
     add constraint shipments_status_check
-    check (status in ('MEMUAT', 'MENGIRIM', 'TIBA', 'ADMIN_APPROVED', 'PARTIALLY_REJECTED'));
+    check (status in (
+        'MEMUAT',
+        'MENGIRIM',
+        'TIBA',
+        'MANDOR_APPROVED',
+        'MANDOR_REJECTED',
+        'ADMIN_APPROVED',
+        'ADMIN_REJECTED',
+        'PARTIALLY_REJECTED'
+    ));
 
 -- Legacy single-harvest column from older demos; current backend stores harvests
 -- through shipment_items.
